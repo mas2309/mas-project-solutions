@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:1.79-slim AS build
+FROM rust:1.86-slim AS build
 WORKDIR /app
 
 # Install dependencies for building (OpenSSL, pkg-config needed by some crates)
