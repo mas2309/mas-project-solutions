@@ -1,0 +1,380 @@
+{
+	"info": {
+		"_postman_id": "mas-finance-api-v1",
+		"name": "MAS Finance - API v1",
+		"description": "API REST del Sistema de Gestión Financiera Personal. Base URL: http://127.0.0.1:8082/api/v1",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8082/api/v1"
+		}
+	],
+	"item": [
+		{
+			"name": "Dashboard",
+			"item": [
+				{
+					"name": "Obtener resumen financiero",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/dashboard",
+							"host": ["{{base_url}}"],
+							"path": ["dashboard"]
+						},
+						"description": "Retorna el resumen general: total ingresos, gastos, balance, deuda total y proyectos activos."
+					}
+				}
+			]
+		},
+		{
+			"name": "Ingresos",
+			"item": [
+				{
+					"name": "Listar ingresos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ingresos?page=1&page_size=20",
+							"host": ["{{base_url}}"],
+							"path": ["ingresos"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "20" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Obtener ingreso por ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ingresos/1",
+							"host": ["{{base_url}}"],
+							"path": ["ingresos", "1"]
+						}
+					}
+				},
+				{
+					"name": "Crear ingreso",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"descripcion\": \"Salario mensual\",\n    \"monto\": 5000000,\n    \"categoria\": \"Salario\",\n    \"fuente\": \"Empresa XYZ\",\n    \"fecha\": \"2026-06-01\",\n    \"recurrente\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ingresos",
+							"host": ["{{base_url}}"],
+							"path": ["ingresos"]
+						}
+					}
+				},
+				{
+					"name": "Actualizar ingreso",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"descripcion\": \"Salario mensual actualizado\",\n    \"monto\": 5500000,\n    \"categoria\": \"Salario\",\n    \"fuente\": \"Empresa XYZ\",\n    \"fecha\": \"2026-06-01\",\n    \"recurrente\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ingresos/1",
+							"host": ["{{base_url}}"],
+							"path": ["ingresos", "1"]
+						}
+					}
+				},
+				{
+					"name": "Eliminar ingreso",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ingresos/1",
+							"host": ["{{base_url}}"],
+							"path": ["ingresos", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Gastos",
+			"item": [
+				{
+					"name": "Listar gastos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/gastos?page=1&page_size=20",
+							"host": ["{{base_url}}"],
+							"path": ["gastos"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "20" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Obtener gasto por ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/gastos/1",
+							"host": ["{{base_url}}"],
+							"path": ["gastos", "1"]
+						}
+					}
+				},
+				{
+					"name": "Crear gasto",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"descripcion\": \"Pago servicios públicos\",\n    \"monto\": 250000,\n    \"categoria\": \"Servicios\",\n    \"responsable\": \"Juan Pérez\",\n    \"fecha\": \"2026-06-05\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/gastos",
+							"host": ["{{base_url}}"],
+							"path": ["gastos"]
+						}
+					}
+				},
+				{
+					"name": "Actualizar gasto",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"descripcion\": \"Pago servicios públicos - junio\",\n    \"monto\": 280000,\n    \"categoria\": \"Servicios\",\n    \"responsable\": \"Juan Pérez\",\n    \"fecha\": \"2026-06-05\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/gastos/1",
+							"host": ["{{base_url}}"],
+							"path": ["gastos", "1"]
+						}
+					}
+				},
+				{
+					"name": "Marcar gasto como pagado",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/gastos/1/pagado",
+							"host": ["{{base_url}}"],
+							"path": ["gastos", "1", "pagado"]
+						}
+					}
+				},
+				{
+					"name": "Eliminar gasto",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/gastos/1",
+							"host": ["{{base_url}}"],
+							"path": ["gastos", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Créditos",
+			"item": [
+				{
+					"name": "Listar créditos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/creditos?page=1&page_size=20",
+							"host": ["{{base_url}}"],
+							"path": ["creditos"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "20" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Obtener crédito por ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/creditos/1",
+							"host": ["{{base_url}}"],
+							"path": ["creditos", "1"]
+						}
+					}
+				},
+				{
+					"name": "Crear crédito",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"entidad\": \"Bancolombia\",\n    \"descripcion\": \"Crédito libre inversión\",\n    \"monto_total\": 20000000,\n    \"tasa_interes\": 1.5,\n    \"cuotas_totales\": 36,\n    \"valor_cuota\": 650000,\n    \"fecha_inicio\": \"2026-01-15\",\n    \"fecha_fin_estimada\": \"2029-01-15\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/creditos",
+							"host": ["{{base_url}}"],
+							"path": ["creditos"]
+						}
+					}
+				},
+				{
+					"name": "Actualizar crédito",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"entidad\": \"Bancolombia\",\n    \"descripcion\": \"Crédito libre inversión - refinanciado\",\n    \"monto_total\": 20000000,\n    \"tasa_interes\": 1.2,\n    \"cuotas_totales\": 48,\n    \"valor_cuota\": 520000,\n    \"fecha_inicio\": \"2026-01-15\",\n    \"fecha_fin_estimada\": \"2030-01-15\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/creditos/1",
+							"host": ["{{base_url}}"],
+							"path": ["creditos", "1"]
+						}
+					}
+				},
+				{
+					"name": "Registrar cuota pagada",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/creditos/1/cuota",
+							"host": ["{{base_url}}"],
+							"path": ["creditos", "1", "cuota"]
+						},
+						"description": "Registra el pago de una cuota: incrementa cuotas_pagadas y descuenta valor_cuota del saldo_pendiente."
+					}
+				},
+				{
+					"name": "Eliminar crédito",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/creditos/1",
+							"host": ["{{base_url}}"],
+							"path": ["creditos", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Documentos",
+			"item": [
+				{
+					"name": "Listar documentos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/documentos?page=1&page_size=20",
+							"host": ["{{base_url}}"],
+							"path": ["documentos"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "20" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Eliminar documento",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/documentos/1",
+							"host": ["{{base_url}}"],
+							"path": ["documentos", "1"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Proyectos",
+			"item": [
+				{
+					"name": "Listar proyectos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/proyectos",
+							"host": ["{{base_url}}"],
+							"path": ["proyectos"]
+						}
+					}
+				},
+				{
+					"name": "Obtener proyecto por ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/proyectos/1",
+							"host": ["{{base_url}}"],
+							"path": ["proyectos", "1"]
+						}
+					}
+				},
+				{
+					"name": "Listar pagos de proyecto",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/proyectos/1/pagos?page=1&page_size=20",
+							"host": ["{{base_url}}"],
+							"path": ["proyectos", "1", "pagos"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "20" }
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}

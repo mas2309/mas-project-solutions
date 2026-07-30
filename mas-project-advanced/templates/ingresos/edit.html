@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Ingreso - MAS Finance{% endblock %}
+{% block page_title %}Editar Ingreso{% endblock %}
+{% block nav_ingresos %}active text-white bg-sidebar-hover{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">Editar Ingreso</h2>
+        <p class="text-gray-500 mt-1">Modifica los datos del ingreso #{{ ingreso.id }}</p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <form method="post" action="/ingresos/{{ ingreso.id }}/editar">
+            <div class="space-y-5">
+                <div>
+                    <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-1">Descripción *</label>
+                    <input type="text" id="descripcion" name="descripcion" value="{{ ingreso.descripcion }}" required
+                        class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="monto" class="block text-sm font-medium text-gray-700 mb-1">Monto *</label>
+                        <input type="number" id="monto" name="monto" step="0.01" min="0" value="{{ ingreso.monto }}" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                    </div>
+                    <div>
+                        <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
+                        <input type="date" id="fecha" name="fecha" value="{{ ingreso.fecha }}" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="categoria" class="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
+                        <select id="categoria" name="categoria" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                            <option value="Salario" {% if ingreso.categoria.to_string() == "Salario" %}selected{% endif %}>Salario</option>
+                            <option value="Freelance" {% if ingreso.categoria.to_string() == "Freelance" %}selected{% endif %}>Freelance</option>
+                            <option value="Inversiones" {% if ingreso.categoria.to_string() == "Inversiones" %}selected{% endif %}>Inversiones</option>
+                            <option value="Arriendo" {% if ingreso.categoria.to_string() == "Arriendo" %}selected{% endif %}>Arriendo</option>
+                            <option value="Venta" {% if ingreso.categoria.to_string() == "Venta" %}selected{% endif %}>Venta</option>
+                            <option value="Otro" {% if ingreso.categoria.to_string() == "Otro" %}selected{% endif %}>Otro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="fuente" class="block text-sm font-medium text-gray-700 mb-1">Fuente (opcional)</label>
+                        <input type="text" id="fuente" name="fuente" value="{% match ingreso.fuente %}{% when Some with (f) %}{{ f }}{% when None %}{% endmatch %}"
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                    </div>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" id="recurrente" name="recurrente" value="true" {% if ingreso.recurrente %}checked{% endif %}
+                        class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                    <label for="recurrente" class="ml-2 text-sm text-gray-700">Es ingreso recurrente</label>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 mt-8 pt-5 border-t border-gray-100">
+                <a href="/ingresos" class="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    Cancelar
+                </a>
+                <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 transition-colors shadow-sm">
+                    Actualizar Ingreso
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

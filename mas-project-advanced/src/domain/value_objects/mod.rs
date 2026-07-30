@@ -1,0 +1,1 @@
+// Value objects específicos para el dominio se agregarán aquí según sea necesario

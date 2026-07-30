@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Créditos - MAS Finance{% endblock %}
+{% block page_title %}Créditos{% endblock %}
+{% block nav_creditos %}active text-white bg-sidebar-hover{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+    <div>
+        <h2 class="text-2xl font-bold text-gray-800">Créditos</h2>
+        <p class="text-gray-500 mt-1">Seguimiento de deudas y cuotas</p>
+    </div>
+    <a href="/creditos/new" class="mt-3 sm:mt-0 inline-flex items-center px-4 py-2.5 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors shadow-sm">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Nuevo Crédito
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-800">{{ total_creditos }}</p>
+                <p class="text-sm text-gray-500">Total Créditos</p>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-800">{{ deuda_total|format_money }}</p>
+                <p class="text-sm text-gray-500">Deuda Total</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if creditos.is_empty() %}
+<div class="bg-white rounded-xl p-8 shadow-sm border border-gray-100 text-center">
+    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+    </div>
+    <p class="text-gray-500 mb-3">No hay créditos registrados</p>
+    <a href="/creditos/new" class="text-primary-600 font-medium hover:text-primary-700">Registrar el primero →</a>
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-100">
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Entidad</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Descripción</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Monto Total</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Saldo</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuota</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Progreso</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for credito in creditos %}
+                <tr class="table-row">
+                    <td class="px-4 py-3 text-sm font-medium text-gray-800">{{ credito.entidad }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">{{ credito.descripcion }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-700 text-right">{{ credito.monto_total|format_money }}</td>
+                    <td class="px-4 py-3 text-sm font-semibold text-red-600 text-right">{{ credito.saldo_pendiente|format_money }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-700 text-right">{{ credito.valor_cuota|format_money }}</td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center space-x-2">
+                            <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-yellow-500 rounded-full" style="width: {{ credito.porcentaje_pagado() }}%"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 w-16 text-right">{{ credito.cuotas_pagadas }}/{{ credito.cuotas_totales }}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if credito.estado.to_string() == "Pagado" %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Pagado</span>
+                        {% else if credito.estado.to_string() == "Mora" %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Mora</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Activo</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex items-center justify-center space-x-1">
+                            <form method="post" action="/creditos/{{ credito.id }}/cuota" style="display:inline;">
+                                <button type="submit" class="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Registrar Cuota">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                                </button>
+                            </form>
+                            <a href="/creditos/{{ credito.id }}/editar" class="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Editar">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </a>
+                            <form method="post" action="/creditos/{{ credito.id }}/eliminar" style="display:inline;" onsubmit="event.preventDefault(); showConfirmModal(this, '¿Eliminar este crédito?')">
+                                <button type="submit" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

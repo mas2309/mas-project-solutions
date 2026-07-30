@@ -1,0 +1,225 @@
+use crate::domain::entities::PagoExistente;
+use crate::application::dto::{CreatePagoDto, PagosSummaryDto};
+use crate::application::repositories::pago_repository::IPagoRepository;
+use async_trait::async_trait;
+use sqlx::PgPool;
+use anyhow::Result;
+use chrono::Utc;
+use rust_decimal::Decimal;
+use sqlx::types::BigDecimal;
+use std::str::FromStr;
+
+pub struct PagoRepository {
+    pool: PgPool,
+}
+
+impl PagoRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    fn bigdecimal_to_decimal(bd: BigDecimal) -> Decimal {
+        Decimal::from_str(&bd.to_string()).unwrap_or(Decimal::ZERO)
+    }
+
+    fn bigdecimal_opt_to_decimal_opt(bd_opt: Option<BigDecimal>) -> Option<Decimal> {
+        bd_opt.map(|bd| Self::bigdecimal_to_decimal(bd))
+    }
+
+    fn map_row_to_pago(r: (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)) -> PagoExistente {
+        println!("DEBUG - Estado desde DB: '{}' (len: {})", r.4, r.4.len());
+        let estado: crate::domain::entities::pago_existente::EstadoPago = r.4.clone().into();
+        println!("DEBUG - Estado convertido: {:?}", estado);
+        
+        PagoExistente {
+            id: r.0 as i32,
+            descripcion: r.1,
+            valor: Self::bigdecimal_to_decimal(r.2),
+            saldo: Self::bigdecimal_opt_to_decimal_opt(r.3),
+            estado,
+            mes: r.5,
+            anio: r.6,
+            proyecto_id: r.7,
+            evidencia: r.8,
+            evidencia_constructora: r.9,
+            fecha_creacion: r.10.to_string(),
+            fecha_actualizacion: r.11.map(|dt| dt.to_string()),
+        }
+    }
+}
+
+#[async_trait]
+impl IPagoRepository for PagoRepository {
+    async fn create(&self, dto: CreatePagoDto) -> Result<PagoExistente> {
+        let now = Utc::now().naive_utc();
+        
+        let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
+            r#"
+            INSERT INTO personal.pagos (descripcion, valor, saldo, estado, mes, anio, proyecto_id, fecha_creacion)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
+            "#
+        )
+        .bind(&dto.descripcion)
+        .bind(dto.valor.to_string().parse::<BigDecimal>().unwrap())
+        .bind(dto.valor.to_string().parse::<BigDecimal>().unwrap())
+        .bind("Pendiente")
+        .bind(&dto.mes)
+        .bind(&dto.anio)
+        .bind(dto.proyecto_id)
+        .bind(now)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(Self::map_row_to_pago(row))
+    }
+
+    async fn find_by_id(&self, id: i32) -> Result<Option<PagoExistente>> {
+        let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
+            "SELECT id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion FROM personal.pagos WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(Self::map_row_to_pago))
+    }
+
+    async fn registrar_pago(&self, id: i32, monto: Decimal) -> Result<Option<PagoExistente>> {
+        let now = Utc::now().naive_utc();
+        
+        let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
+            r#"
+            UPDATE personal.pagos 
+            SET saldo = GREATEST(0, saldo - $2),
+                estado = CASE 
+                    WHEN (saldo - $2) <= 0 THEN 'Pagado'
+                    WHEN (saldo - $2) < valor THEN 'Parcial'
+                    ELSE estado
+                END,
+                fecha_actualizacion = $3
+            WHERE id = $1
+            RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
+            "#
+        )
+        .bind(id)
+        .bind(monto.to_string().parse::<BigDecimal>().unwrap())
+        .bind(now)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(Self::map_row_to_pago))
+    }
+
+    async fn get_summary(&self, anio: &str) -> Result<PagosSummaryDto> {
+        let row = sqlx::query!(
+            r#"
+            SELECT 
+                COUNT(*) as total_pagos,
+                COALESCE(SUM(valor), 0) as total_valor,
+                COALESCE(SUM(saldo), 0) as total_saldo,
+                COUNT(CASE WHEN estado = 'Pagado' THEN 1 END) as pagos_completados,
+                COUNT(CASE WHEN estado != 'Pagado' THEN 1 END) as pagos_pendientes
+            FROM personal.pagos 
+            WHERE anio = $1
+            "#,
+            anio
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(PagosSummaryDto {
+            total_pagos: row.total_pagos.unwrap_or(0),
+            total_valor: Self::bigdecimal_to_decimal(row.total_valor.unwrap_or(BigDecimal::from(0))),
+            total_saldo: Self::bigdecimal_to_decimal(row.total_saldo.unwrap_or(BigDecimal::from(0))),
+            pagos_completados: row.pagos_completados.unwrap_or(0),
+            pagos_pendientes: row.pagos_pendientes.unwrap_or(0),
+        })
+    }
+
+    async fn actualizar_evidencia(&self, id: i32, url: &str, tipo: &str) -> Result<Option<PagoExistente>> {
+        let now = Utc::now().naive_utc();
+        
+        let query = match tipo {
+            "cliente" => r#"
+                UPDATE personal.pagos
+                SET evidencia = $2, fecha_actualizacion = $3
+                WHERE id = $1
+                RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
+            "#,
+            "constructora" => r#"
+                UPDATE personal.pagos
+                SET evidencia_constructora = $2, fecha_actualizacion = $3
+                WHERE id = $1
+                RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
+            "#,
+            _ => return Err(anyhow::anyhow!("Tipo de evidencia inválido")),
+        };
+        
+        let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(query)
+            .bind(id)
+            .bind(url)
+            .bind(now)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        Ok(row.map(Self::map_row_to_pago))
+    }
+
+    async fn marcar_pagado(&self, id: i32) -> Result<Option<PagoExistente>> {
+        let now = Utc::now().naive_utc();
+        
+        let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
+            r#"
+            UPDATE personal.pagos 
+            SET saldo = 0, estado = 'Pagado', fecha_actualizacion = $2
+            WHERE id = $1
+            RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
+            "#
+        )
+        .bind(id)
+        .bind(now)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(Self::map_row_to_pago))
+    }
+
+    async fn delete(&self, id: i32) -> Result<Option<PagoExistente>> {
+        let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
+            r#"
+            DELETE FROM personal.pagos 
+            WHERE id = $1
+            RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
+            "#
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(Self::map_row_to_pago))
+    }
+
+    async fn update(&self, id: i32, descripcion: &str, valor: Decimal, mes: &str, anio: &str) -> Result<Option<PagoExistente>> {
+        let now = Utc::now().naive_utc();
+        
+        let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
+            r#"
+            UPDATE personal.pagos 
+            SET descripcion = $2, valor = $3, saldo = $3, mes = $4, anio = $5, fecha_actualizacion = $6
+            WHERE id = $1
+            RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
+            "#
+        )
+        .bind(id)
+        .bind(descripcion)
+        .bind(valor.to_string().parse::<BigDecimal>().unwrap())
+        .bind(mes)
+        .bind(anio)
+        .bind(now)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(Self::map_row_to_pago))
+    }
+}

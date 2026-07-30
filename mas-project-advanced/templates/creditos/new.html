@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Crédito - MAS Finance{% endblock %}
+{% block page_title %}Nuevo Crédito{% endblock %}
+{% block nav_creditos %}active text-white bg-sidebar-hover{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">Registrar Crédito</h2>
+        <p class="text-gray-500 mt-1">Agrega un nuevo crédito o deuda</p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <form method="post" action="/creditos">
+            <div class="space-y-5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="entidad" class="block text-sm font-medium text-gray-700 mb-1">Entidad *</label>
+                        <input type="text" id="entidad" name="entidad" required placeholder="Ej: Bancolombia"
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                    </div>
+                    <div>
+                        <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-1">Descripción *</label>
+                        <input type="text" id="descripcion" name="descripcion" required placeholder="Ej: Crédito libre inversión"
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label for="monto_total" class="block text-sm font-medium text-gray-700 mb-1">Monto Total *</label>
+                        <input type="number" id="monto_total" name="monto_total" step="0.01" min="0" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                            oninput="calcularCuota()">
+                    </div>
+                    <div>
+                        <label for="tasa_interes" class="block text-sm font-medium text-gray-700 mb-1">Tasa Interés Anual (%) *</label>
+                        <input type="number" id="tasa_interes" name="tasa_interes" step="0.01" min="0" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                            oninput="calcularCuota()">
+                    </div>
+                    <div>
+                        <label for="tipo_tasa" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Tasa *</label>
+                        <select id="tipo_tasa" name="tipo_tasa" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                            onchange="calcularCuota()">
+                            <option value="Fija">📌 Fija</option>
+                            <option value="Variable">📈 Variable</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="valor_cuota" class="block text-sm font-medium text-gray-700 mb-1">Valor Cuota *</label>
+                        <input type="number" id="valor_cuota" name="valor_cuota" step="0.01" min="0" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors bg-green-50"
+                            title="Calculado automáticamente. Puede editar manualmente si desea.">
+                    </div>
+                </div>
+
+                <!-- Info tipo de tasa -->
+                <div id="info-tasa" class="p-3 rounded-lg border text-sm bg-blue-50 border-blue-200 text-blue-800">
+                    <strong>📌 Tasa Fija:</strong> La cuota es la misma todos los meses. Ideal si quiere saber exactamente cuánto paga.
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label for="cuotas_totales" class="block text-sm font-medium text-gray-700 mb-1">Cuotas Totales *</label>
+                        <input type="number" id="cuotas_totales" name="cuotas_totales" min="1" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                            oninput="calcularCuota()">
+                    </div>
+                    <div>
+                        <label for="fecha_inicio" class="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio *</label>
+                        <input type="date" id="fecha_inicio" name="fecha_inicio" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                    </div>
+                    <div>
+                        <label for="fecha_fin_estimada" class="block text-sm font-medium text-gray-700 mb-1">Fecha Fin Estimada</label>
+                        <input type="date" id="fecha_fin_estimada" name="fecha_fin_estimada"
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 mt-8 pt-5 border-t border-gray-100">
+                <a href="/creditos" class="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    Cancelar
+                </a>
+                <button type="submit" class="px-5 py-2.5 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 transition-colors shadow-sm">
+                    Registrar Crédito
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function calcularCuota() {
+    const monto = parseFloat(document.getElementById('monto_total').value) || 0;
+    const tasaAnual = parseFloat(document.getElementById('tasa_interes').value) || 0;
+    const cuotas = parseInt(document.getElementById('cuotas_totales').value) || 0;
+    const tipoTasa = document.getElementById('tipo_tasa').value;
+    const infoDiv = document.getElementById('info-tasa');
+
+    // Actualizar info según tipo de tasa
+    if (tipoTasa === 'Fija') {
+        infoDiv.className = 'p-3 rounded-lg border text-sm bg-blue-50 border-blue-200 text-blue-800';
+        infoDiv.innerHTML = '<strong>📌 Tasa Fija:</strong> La cuota es la misma todos los meses. Ideal si quiere saber exactamente cuánto paga.';
+    } else {
+        infoDiv.className = 'p-3 rounded-lg border text-sm bg-amber-50 border-amber-200 text-amber-800';
+        infoDiv.innerHTML = '<strong>📈 Tasa Variable:</strong> La cuota puede cambiar según el mercado. Se calcula con la tasa actual como referencia. El valor real puede subir o bajar.';
+    }
+
+    if (monto <= 0 || cuotas <= 0) return;
+
+    let cuotaCalculada = 0;
+
+    if (tasaAnual === 0) {
+        // Sin interés: simplemente dividir
+        cuotaCalculada = monto / cuotas;
+    } else {
+        // Fórmula de amortización francesa (aplica para ambos tipos)
+        // Para tasa variable, se calcula con la tasa actual como referencia
+        const tasaMensual = tasaAnual / 12 / 100;
+        const factor = Math.pow(1 + tasaMensual, cuotas);
+        cuotaCalculada = monto * (tasaMensual * factor) / (factor - 1);
+    }
+
+    document.getElementById('valor_cuota').value = cuotaCalculada.toFixed(2);
+}
+</script>
+{% endblock %}

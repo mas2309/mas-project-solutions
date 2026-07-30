@@ -1,0 +1,44 @@
+[package]
+name = "mas-project-advanced"
+version = "0.1.0"
+edition = "2021"
+authors = ["Tu Nombre <tu@email.com>"]
+description = "Sistema de Gestión Financiera Personal y Proyectos en Rust"
+
+[dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Database
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono", "bigdecimal", "migrate"] }
+bigdecimal = "0.4"
+tokio = { version = "1.0", features = ["full"] }
+
+# Date/Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Decimal for financial calculations
+rust_decimal = { version = "1.0", features = ["serde"] }
+
+# Error handling
+anyhow = "1.0"
+
+# Utilities
+slug = "0.1"
+
+# Web server
+axum = { version = "0.7", features = ["multipart"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+askama = { version = "0.12", features = ["with-axum"] }
+askama_axum = "0.4"
+
+# Async traits
+async-trait = "0.1"
+
+# S3-compatible Object Storage (Contabo)
+aws-sdk-s3 = "1.13"
+
+[dev-dependencies]
+tokio-test = "0.4"
