@@ -10,6 +10,9 @@ COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release && rm -rf src
 
+# Copy templates (needed at compile time by Askama)
+COPY templates/ templates/
+
 # Copy actual source code and rebuild
 COPY src/ src/
 RUN touch src/main.rs && cargo build --release
@@ -24,7 +27,7 @@ RUN apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/
 # Copy binary from build stage
 COPY --from=build /app/target/release/mas-project-advanced .
 
-# Copy templates and migrations
+# Copy templates and migrations for runtime
 COPY templates/ templates/
 COPY migrations/ migrations/
 

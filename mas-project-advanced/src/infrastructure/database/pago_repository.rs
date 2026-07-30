@@ -112,7 +112,7 @@ impl IPagoRepository for PagoRepository {
     }
 
     async fn get_summary(&self, anio: &str) -> Result<PagosSummaryDto> {
-        let row = sqlx::query!(
+        let row = sqlx::query_as::<_, (Option<i64>, Option<BigDecimal>, Option<BigDecimal>, Option<i64>, Option<i64>)>(
             r#"
             SELECT 
                 COUNT(*) as total_pagos,
@@ -122,18 +122,18 @@ impl IPagoRepository for PagoRepository {
                 COUNT(CASE WHEN estado != 'Pagado' THEN 1 END) as pagos_pendientes
             FROM personal.pagos 
             WHERE anio = $1
-            "#,
-            anio
+            "#
         )
+        .bind(anio)
         .fetch_one(&self.pool)
         .await?;
 
         Ok(PagosSummaryDto {
-            total_pagos: row.total_pagos.unwrap_or(0),
-            total_valor: Self::bigdecimal_to_decimal(row.total_valor.unwrap_or(BigDecimal::from(0))),
-            total_saldo: Self::bigdecimal_to_decimal(row.total_saldo.unwrap_or(BigDecimal::from(0))),
-            pagos_completados: row.pagos_completados.unwrap_or(0),
-            pagos_pendientes: row.pagos_pendientes.unwrap_or(0),
+            total_pagos: row.0.unwrap_or(0),
+            total_valor: Self::bigdecimal_to_decimal(row.1.unwrap_or(BigDecimal::from(0))),
+            total_saldo: Self::bigdecimal_to_decimal(row.2.unwrap_or(BigDecimal::from(0))),
+            pagos_completados: row.3.unwrap_or(0),
+            pagos_pendientes: row.4.unwrap_or(0),
         })
     }
 

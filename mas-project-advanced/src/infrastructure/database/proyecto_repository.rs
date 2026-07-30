@@ -175,7 +175,7 @@ impl IProyectoRepository for ProyectoRepository {
     }
 
     async fn get_summary(&self) -> Result<ProyectoSummaryDto> {
-        let row = sqlx::query!(
+        let row = sqlx::query_as::<_, (Option<i64>, Option<i64>, Option<i64>, Option<BigDecimal>, Option<BigDecimal>, Option<i64>)>(
             r#"
             SELECT 
                 COUNT(*) as total_proyectos,
@@ -191,12 +191,12 @@ impl IProyectoRepository for ProyectoRepository {
         .await?;
 
         Ok(ProyectoSummaryDto {
-            total_proyectos: row.total_proyectos.unwrap_or(0),
-            proyectos_activos: row.proyectos_activos.unwrap_or(0),
-            proyectos_completados: row.proyectos_completados.unwrap_or(0),
-            presupuesto_total: Self::bigdecimal_to_decimal(row.presupuesto_total.unwrap_or(BigDecimal::from(0))),
-            costo_total: Self::bigdecimal_to_decimal(row.costo_total.unwrap_or(BigDecimal::from(0))),
-            proyectos_sobre_presupuesto: row.proyectos_sobre_presupuesto.unwrap_or(0),
+            total_proyectos: row.0.unwrap_or(0),
+            proyectos_activos: row.1.unwrap_or(0),
+            proyectos_completados: row.2.unwrap_or(0),
+            presupuesto_total: Self::bigdecimal_to_decimal(row.3.unwrap_or(BigDecimal::from(0))),
+            costo_total: Self::bigdecimal_to_decimal(row.4.unwrap_or(BigDecimal::from(0))),
+            proyectos_sobre_presupuesto: row.5.unwrap_or(0),
         })
     }
 
