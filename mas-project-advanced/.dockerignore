@@ -1,0 +1,14 @@
+target/
+.git/
+.github/
+.idea/
+.env*
+!.env.example
+docs/
+scripts/
+*.md
+*.exe
+*.7z
+Cargo.lock.bak
+fix_estado_pagos.sql
+debug_estado.sql

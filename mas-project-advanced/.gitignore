@@ -1,0 +1,22 @@
+# Rust build artifacts
+target/
+**/*.rs.bk
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Environment files (keep examples)
+.env
+.env.development
+.env.testing
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Binaries and installers
+*.exe
+*.7z
