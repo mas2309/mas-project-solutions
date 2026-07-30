@@ -1,8 +1,8 @@
-# Build stage
-FROM rust:1.96-slim AS build
+# Build stage - use bookworm to match runtime glibc
+FROM rust:1.96-bookworm AS build
 WORKDIR /app
 
-# Install dependencies for building (OpenSSL, pkg-config needed by some crates)
+# Install dependencies for building
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
 # Copy manifests first for dependency caching
@@ -17,7 +17,7 @@ COPY templates/ templates/
 COPY src/ src/
 RUN touch src/main.rs && cargo build --release
 
-# Runtime stage
+# Runtime stage - same base OS
 FROM debian:bookworm-slim
 WORKDIR /app
 
