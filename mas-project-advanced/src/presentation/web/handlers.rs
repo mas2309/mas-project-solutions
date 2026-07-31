@@ -8,6 +8,7 @@ use rust_decimal::Decimal;
 use std::collections::HashMap;
 
 use crate::application::dto::{CreatePagoDto, CreateProyectoDto, UpdateProyectoDto, CreateIngresoDto, CreateGastoDto, CreateCreditoDto, CreateDocumentoDto};
+use crate::presentation::middleware::AuthUser;
 use super::templates::*;
 use super::server::AppState;
 
@@ -21,21 +22,21 @@ fn default_page() -> u32 {
     1
 }
 
-pub async fn home(State(state): State<AppState>) -> Result<DashboardTemplate, StatusCode> {
-    dashboard(State(state)).await
+pub async fn home(State(state): State<AppState>, user: AuthUser) -> Result<DashboardTemplate, StatusCode> {
+    dashboard(State(state), user).await
 }
 
-pub async fn dashboard(State(state): State<AppState>) -> Result<DashboardTemplate, StatusCode> {
+pub async fn dashboard(State(state): State<AppState>, user: AuthUser) -> Result<DashboardTemplate, StatusCode> {
     // Obtener datos de todos los módulos
-    let (ingresos, _total_ing) = state.ingreso_service.listar_ingresos(1, 10000).await
+    let (ingresos, _total_ing) = state.ingreso_service.listar_ingresos(user.id, 1, 10000).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let (gastos, _total_gas) = state.gasto_service.listar_gastos(1, 10000).await
+    let (gastos, _total_gas) = state.gasto_service.listar_gastos(user.id, 1, 10000).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let (creditos, _total_cred) = state.credito_service.listar_creditos(1, 10000).await
+    let (creditos, _total_cred) = state.credito_service.listar_creditos(user.id, 1, 10000).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let (_, summary) = state.proyecto_service.list_all_proyectos().await
+    let (_, summary) = state.proyecto_service.list_all_proyectos(user.id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let documentos = state.documento_service.listar_documentos(1, 10000).await
+    let documentos = state.documento_service.listar_documentos(user.id, 1, 10000).await
         .unwrap_or_else(|_| (vec![], 0)).0;
 
     // Calcular métricas
@@ -137,8 +138,8 @@ fn extract_month(fecha: &str) -> Option<usize> {
     }
 }
 
-pub async fn list_proyectos(State(state): State<AppState>) -> Result<ProyectosListTemplate, StatusCode> {
-    let (proyectos, summary) = state.proyecto_service.list_all_proyectos().await
+pub async fn list_proyectos(State(state): State<AppState>, user: AuthUser) -> Result<ProyectosListTemplate, StatusCode> {
+    let (proyectos, summary) = state.proyecto_service.list_all_proyectos(user.id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(ProyectosListTemplate {
@@ -150,11 +151,12 @@ pub async fn list_proyectos(State(state): State<AppState>) -> Result<ProyectosLi
 
 pub async fn list_pagos_proyecto(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
     Query(pagination): Query<Pagination>,
 ) -> Result<PagosProyectoTemplate, StatusCode> {
     let page_size = 10;
-    let (proyecto, pagos, total_pagos) = state.proyecto_service.get_proyecto_with_pagos(id, pagination.page, page_size).await
+    let (proyecto, pagos, total_pagos) = state.proyecto_service.get_proyecto_with_pagos(user.id, id, pagination.page, page_size).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
     // DEBUG: Imprimir estados
@@ -185,7 +187,7 @@ pub async fn list_pagos_proyecto(
     })
 }
 
-pub async fn new_proyecto_form() -> NewProyectoTemplate {
+pub async fn new_proyecto_form(_user: AuthUser) -> NewProyectoTemplate {
     NewProyectoTemplate {
         title: "Nuevo Proyecto".to_string(),
     }
@@ -198,10 +200,11 @@ pub struct NewPagoQuery {
 
 pub async fn new_pago_proyecto_form(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
     Query(query): Query<NewPagoQuery>,
 ) -> Result<NewPagoProyectoTemplate, StatusCode> {
-    let (proyecto, pagos, _) = state.proyecto_service.get_proyecto_with_pagos(id, 1, 10000).await
+    let (proyecto, pagos, _) = state.proyecto_service.get_proyecto_with_pagos(user.id, id, 1, 10000).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     
     let presupuesto = proyecto.presupuesto.unwrap_or(Decimal::ZERO);
@@ -231,10 +234,11 @@ pub struct CambiarEstadoForm {
 
 pub async fn cambiar_estado_proyecto(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
     Form(form): Form<CambiarEstadoForm>,
 ) -> Result<Redirect, StatusCode> {
-    state.proyecto_service.cambiar_estado_proyecto(id, &form.estado).await
+    state.proyecto_service.cambiar_estado_proyecto(user.id, id, &form.estado).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(Redirect::to("/proyectos"))
@@ -250,6 +254,7 @@ pub struct CreatePagoProyectoForm {
 
 pub async fn create_pago_proyecto(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(proyecto_id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Redirect, StatusCode> {
@@ -303,14 +308,14 @@ pub async fn create_pago_proyecto(
         proyecto_id: Some(proyecto_id),
     };
     
-    match state.pago_service.crear_pago(dto).await {
+    match state.pago_service.crear_pago(user.id, dto).await {
         Ok(pago) => {
             // Subir evidencias si se proporcionaron
             if let Some((data, name)) = evidencia_cliente {
-                let _ = state.pago_service.subir_evidencia(pago.id, data, &name, "cliente").await;
+                let _ = state.pago_service.subir_evidencia(user.id, pago.id, data, &name, "cliente").await;
             }
             if let Some((data, name)) = evidencia_constructora {
-                let _ = state.pago_service.subir_evidencia(pago.id, data, &name, "constructora").await;
+                let _ = state.pago_service.subir_evidencia(user.id, pago.id, data, &name, "constructora").await;
             }
             Ok(Redirect::to(&format!("/proyectos/{}/pagos", proyecto_id)))
         }
@@ -323,6 +328,7 @@ pub async fn create_pago_proyecto(
 
 pub async fn upload_evidencia_pago(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(pago_id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Redirect, StatusCode> {
@@ -357,7 +363,7 @@ pub async fn upload_evidencia_pago(
     let file_name = file_name.ok_or(StatusCode::BAD_REQUEST)?;
     let tipo = tipo.ok_or(StatusCode::BAD_REQUEST)?;
     
-    state.pago_service.subir_evidencia(pago_id, file_data, &file_name, &tipo).await
+    state.pago_service.subir_evidencia(user.id, pago_id, file_data, &file_name, &tipo).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     if let Some(pid) = proyecto_id {
@@ -380,6 +386,7 @@ pub struct CreateProyectoForm {
 
 pub async fn create_proyecto(
     State(state): State<AppState>,
+    user: AuthUser,
     Form(form): Form<CreateProyectoForm>,
 ) -> Result<Redirect, StatusCode> {
     let dto = CreateProyectoDto {
@@ -391,7 +398,7 @@ pub async fn create_proyecto(
         responsable: form.responsable,
     };
     
-    state.proyecto_service.crear_proyecto(dto).await
+    state.proyecto_service.crear_proyecto(user.id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(Redirect::to("/proyectos"))
@@ -399,9 +406,10 @@ pub async fn create_proyecto(
 
 pub async fn show_proyecto(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<ShowProyectoTemplate, StatusCode> {
-    let proyecto = state.proyecto_service.get_proyecto_by_id(id).await
+    let proyecto = state.proyecto_service.get_proyecto_by_id(user.id, id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     
     Ok(ShowProyectoTemplate {
@@ -412,9 +420,10 @@ pub async fn show_proyecto(
 
 pub async fn edit_proyecto_form(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<EditProyectoTemplate, StatusCode> {
-    let proyecto = state.proyecto_service.get_proyecto_by_id(id).await
+    let proyecto = state.proyecto_service.get_proyecto_by_id(user.id, id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     
     Ok(EditProyectoTemplate {
@@ -434,6 +443,7 @@ pub struct UpdateProyectoForm {
 
 pub async fn update_proyecto(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
     Form(form): Form<UpdateProyectoForm>,
 ) -> Result<Redirect, StatusCode> {
@@ -446,7 +456,7 @@ pub async fn update_proyecto(
         responsable: form.responsable,
     };
     
-    state.proyecto_service.actualizar_proyecto(id, dto).await
+    state.proyecto_service.actualizar_proyecto(user.id, id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(Redirect::to(&format!("/proyectos/{}", id)))
@@ -459,10 +469,11 @@ pub struct PagoRedirectForm {
 
 pub async fn marcar_pago_pagado(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(pago_id): Path<i32>,
     Form(form): Form<PagoRedirectForm>,
 ) -> Result<Redirect, StatusCode> {
-    state.pago_service.marcar_pagado(pago_id).await
+    state.pago_service.marcar_pagado(user.id, pago_id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     if let Some(proyecto_id) = form.proyecto_id {
@@ -474,10 +485,11 @@ pub async fn marcar_pago_pagado(
 
 pub async fn eliminar_pago(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(pago_id): Path<i32>,
     Form(form): Form<PagoRedirectForm>,
 ) -> Result<Redirect, StatusCode> {
-    state.pago_service.eliminar_pago(pago_id).await
+    state.pago_service.eliminar_pago(user.id, pago_id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     if let Some(proyecto_id) = form.proyecto_id {
@@ -489,9 +501,10 @@ pub async fn eliminar_pago(
 
 pub async fn edit_pago_form(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(pago_id): Path<i32>,
 ) -> Result<EditPagoTemplate, StatusCode> {
-    let pago = state.pago_service.obtener_pago(pago_id).await
+    let pago = state.pago_service.obtener_pago(user.id, pago_id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     
     Ok(EditPagoTemplate {
@@ -502,6 +515,7 @@ pub async fn edit_pago_form(
 
 pub async fn update_pago(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(pago_id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Redirect, StatusCode> {
@@ -553,7 +567,7 @@ pub async fn update_pago(
     let anio = anio.ok_or(StatusCode::BAD_REQUEST)?;
 
     state.pago_service.editar_pago_con_evidencias(
-        pago_id, &descripcion, valor, &mes, &anio,
+        user.id, pago_id, &descripcion, valor, &mes, &anio,
         evidencia_cliente, evidencia_constructora,
     ).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -568,9 +582,10 @@ pub async fn update_pago(
 
 pub async fn list_ingresos(
     State(state): State<AppState>,
+    user: AuthUser,
     Query(pagination): Query<Pagination>,
 ) -> Result<IngresosListTemplate, StatusCode> {
-    let (ingresos, total) = state.ingreso_service.listar_ingresos(pagination.page, 20).await
+    let (ingresos, total) = state.ingreso_service.listar_ingresos(user.id, pagination.page, 20).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     let monto_total: Decimal = ingresos.iter().map(|i| i.monto).sum();
@@ -583,7 +598,7 @@ pub async fn list_ingresos(
     })
 }
 
-pub async fn new_ingreso_form() -> NewIngresoTemplate {
+pub async fn new_ingreso_form(_user: AuthUser) -> NewIngresoTemplate {
     NewIngresoTemplate {
         title: "Nuevo Ingreso".to_string(),
     }
@@ -601,6 +616,7 @@ pub struct CreateIngresoForm {
 
 pub async fn create_ingreso(
     State(state): State<AppState>,
+    user: AuthUser,
     Form(form): Form<CreateIngresoForm>,
 ) -> Result<Redirect, StatusCode> {
     let dto = CreateIngresoDto {
@@ -612,7 +628,7 @@ pub async fn create_ingreso(
         recurrente: form.recurrente.is_some(),
     };
 
-    state.ingreso_service.crear_ingreso(dto).await
+    state.ingreso_service.crear_ingreso(user.id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/ingresos"))
@@ -620,9 +636,10 @@ pub async fn create_ingreso(
 
 pub async fn eliminar_ingreso(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<Redirect, StatusCode> {
-    state.ingreso_service.eliminar_ingreso(id).await
+    state.ingreso_service.eliminar_ingreso(user.id, id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/ingresos"))
@@ -632,12 +649,13 @@ pub async fn eliminar_ingreso(
 
 pub async fn list_gastos(
     State(state): State<AppState>,
+    user: AuthUser,
     Query(pagination): Query<Pagination>,
 ) -> Result<GastosListTemplate, StatusCode> {
     // Auto-generar los gastos fijos cuyo día de facturación ya pasó
-    let _ = state.gasto_recurrente_service.auto_generar_fijos().await;
+    let _ = state.gasto_recurrente_service.auto_generar_fijos(user.id).await;
 
-    let (gastos, total) = state.gasto_service.listar_gastos(pagination.page, 20).await
+    let (gastos, total) = state.gasto_service.listar_gastos(user.id, pagination.page, 20).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     let monto_total: Decimal = gastos.iter().map(|g| g.monto).sum();
@@ -650,7 +668,7 @@ pub async fn list_gastos(
     })
 }
 
-pub async fn new_gasto_form() -> NewGastoTemplate {
+pub async fn new_gasto_form(_user: AuthUser) -> NewGastoTemplate {
     NewGastoTemplate {
         title: "Nuevo Gasto".to_string(),
     }
@@ -658,6 +676,7 @@ pub async fn new_gasto_form() -> NewGastoTemplate {
 
 pub async fn create_gasto(
     State(state): State<AppState>,
+    user: AuthUser,
     mut multipart: Multipart,
 ) -> Result<Redirect, StatusCode> {
     let mut descripcion: Option<String> = None;
@@ -699,11 +718,11 @@ pub async fn create_gasto(
         fecha: fecha.ok_or(StatusCode::BAD_REQUEST)?,
     };
 
-    let gasto = state.gasto_service.crear_gasto(dto).await
+    let gasto = state.gasto_service.crear_gasto(user.id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if let Some((data, name)) = soporte {
-        let _ = state.gasto_service.subir_soporte(gasto.id, data, &name).await;
+        let _ = state.gasto_service.subir_soporte(user.id, gasto.id, data, &name).await;
     }
 
     Ok(Redirect::to("/gastos"))
@@ -711,9 +730,10 @@ pub async fn create_gasto(
 
 pub async fn marcar_gasto_pagado(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<Redirect, StatusCode> {
-    state.gasto_service.marcar_pagado(id).await
+    state.gasto_service.marcar_pagado(user.id, id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/gastos"))
@@ -721,9 +741,10 @@ pub async fn marcar_gasto_pagado(
 
 pub async fn eliminar_gasto(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<Redirect, StatusCode> {
-    state.gasto_service.eliminar_gasto(id).await
+    state.gasto_service.eliminar_gasto(user.id, id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/gastos"))
@@ -731,6 +752,7 @@ pub async fn eliminar_gasto(
 
 pub async fn upload_soporte_gasto(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Redirect, StatusCode> {
@@ -741,7 +763,7 @@ pub async fn upload_soporte_gasto(
             if !file_name.is_empty() {
                 let data = field.bytes().await.map_err(|_| StatusCode::BAD_REQUEST)?.to_vec();
                 if !data.is_empty() {
-                    state.gasto_service.subir_soporte(id, data, &file_name).await
+                    state.gasto_service.subir_soporte(user.id, id, data, &file_name).await
                         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
                 }
             }
@@ -755,9 +777,10 @@ pub async fn upload_soporte_gasto(
 
 pub async fn edit_ingreso_form(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<EditIngresoTemplate, StatusCode> {
-    let ingreso = state.ingreso_service.obtener_ingreso(id).await
+    let ingreso = state.ingreso_service.obtener_ingreso(user.id, id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
     Ok(EditIngresoTemplate {
@@ -768,6 +791,7 @@ pub async fn edit_ingreso_form(
 
 pub async fn update_ingreso(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
     Form(form): Form<CreateIngresoForm>,
 ) -> Result<Redirect, StatusCode> {
@@ -780,7 +804,7 @@ pub async fn update_ingreso(
         recurrente: form.recurrente.is_some(),
     };
 
-    state.ingreso_service.editar_ingreso(id, dto).await
+    state.ingreso_service.editar_ingreso(user.id, id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/ingresos"))
@@ -790,9 +814,10 @@ pub async fn update_ingreso(
 
 pub async fn edit_gasto_form(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<EditGastoTemplate, StatusCode> {
-    let gasto = state.gasto_service.obtener_gasto(id).await
+    let gasto = state.gasto_service.obtener_gasto(user.id, id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
     Ok(EditGastoTemplate {
@@ -803,6 +828,7 @@ pub async fn edit_gasto_form(
 
 pub async fn update_gasto(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Redirect, StatusCode> {
@@ -845,11 +871,11 @@ pub async fn update_gasto(
         fecha: fecha.ok_or(StatusCode::BAD_REQUEST)?,
     };
 
-    state.gasto_service.editar_gasto(id, dto).await
+    state.gasto_service.editar_gasto(user.id, id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if let Some((data, name)) = soporte {
-        let _ = state.gasto_service.subir_soporte(id, data, &name).await;
+        let _ = state.gasto_service.subir_soporte(user.id, id, data, &name).await;
     }
 
     Ok(Redirect::to("/gastos"))
@@ -859,11 +885,12 @@ pub async fn update_gasto(
 
 pub async fn list_gastos_recurrentes(
     State(state): State<AppState>,
+    user: AuthUser,
 ) -> Result<GastosRecurrentesListTemplate, StatusCode> {
     // Auto-generar los gastos fijos cuyo día de facturación ya pasó
-    let _ = state.gasto_recurrente_service.auto_generar_fijos().await;
+    let _ = state.gasto_recurrente_service.auto_generar_fijos(user.id).await;
 
-    let gastos_recurrentes = state.gasto_recurrente_service.listar_todos().await
+    let gastos_recurrentes = state.gasto_recurrente_service.listar_todos(user.id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let monto_mensual_estimado: Decimal = gastos_recurrentes.iter()
@@ -878,6 +905,7 @@ pub async fn list_gastos_recurrentes(
     let mes_actual = format!("{}/{}", now.format("%m"), now.format("%Y"));
     let pendientes_generar = state.gasto_recurrente_service
         .variables_pendientes_por_generar(
+            user.id,
             now.format("%Y").to_string().parse().unwrap_or(2026),
             now.format("%m").to_string().parse().unwrap_or(1),
         )
@@ -893,7 +921,7 @@ pub async fn list_gastos_recurrentes(
     })
 }
 
-pub async fn new_gasto_recurrente_form() -> NewGastoRecurrenteTemplate {
+pub async fn new_gasto_recurrente_form(_user: AuthUser) -> NewGastoRecurrenteTemplate {
     NewGastoRecurrenteTemplate { title: "Nuevo Gasto Recurrente".to_string() }
 }
 
@@ -909,6 +937,7 @@ pub struct CreateGastoRecurrenteForm {
 
 pub async fn create_gasto_recurrente(
     State(state): State<AppState>,
+    user: AuthUser,
     Form(form): Form<CreateGastoRecurrenteForm>,
 ) -> Result<Redirect, StatusCode> {
     use crate::application::dto::CreateGastoRecurrenteDto;
@@ -922,7 +951,7 @@ pub async fn create_gasto_recurrente(
         dia_facturacion: form.dia_facturacion.parse().unwrap_or(1),
     };
 
-    state.gasto_recurrente_service.crear(dto).await
+    state.gasto_recurrente_service.crear(user.id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/gastos-recurrentes"))
@@ -930,9 +959,10 @@ pub async fn create_gasto_recurrente(
 
 pub async fn edit_gasto_recurrente_form(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<EditGastoRecurrenteTemplate, StatusCode> {
-    let gasto_recurrente = state.gasto_recurrente_service.obtener(id).await
+    let gasto_recurrente = state.gasto_recurrente_service.obtener(user.id, id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
     Ok(EditGastoRecurrenteTemplate {
@@ -943,6 +973,7 @@ pub async fn edit_gasto_recurrente_form(
 
 pub async fn update_gasto_recurrente(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
     Form(form): Form<CreateGastoRecurrenteForm>,
 ) -> Result<Redirect, StatusCode> {
@@ -957,7 +988,7 @@ pub async fn update_gasto_recurrente(
         dia_facturacion: form.dia_facturacion.parse().unwrap_or(1),
     };
 
-    state.gasto_recurrente_service.editar(id, dto).await
+    state.gasto_recurrente_service.editar(user.id, id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/gastos-recurrentes"))
@@ -965,9 +996,10 @@ pub async fn update_gasto_recurrente(
 
 pub async fn toggle_gasto_recurrente(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<Redirect, StatusCode> {
-    state.gasto_recurrente_service.toggle_activo(id).await
+    state.gasto_recurrente_service.toggle_activo(user.id, id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/gastos-recurrentes"))
@@ -975,9 +1007,10 @@ pub async fn toggle_gasto_recurrente(
 
 pub async fn eliminar_gasto_recurrente(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<Redirect, StatusCode> {
-    state.gasto_recurrente_service.eliminar(id).await
+    state.gasto_recurrente_service.eliminar(user.id, id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/gastos-recurrentes"))
@@ -991,6 +1024,7 @@ pub struct GenerarGastosForm {
 
 pub async fn generar_gastos_mes(
     State(state): State<AppState>,
+    user: AuthUser,
     Form(form): Form<GenerarGastosForm>,
 ) -> Result<Redirect, StatusCode> {
     use crate::application::dto::GenerarGastosDto;
@@ -1000,7 +1034,7 @@ pub async fn generar_gastos_mes(
         anio: form.anio.parse().map_err(|_| StatusCode::BAD_REQUEST)?,
     };
 
-    state.gasto_recurrente_service.generar_variables_del_mes(dto).await
+    state.gasto_recurrente_service.generar_variables_del_mes(user.id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/gastos"))
@@ -1010,9 +1044,10 @@ pub async fn generar_gastos_mes(
 
 pub async fn list_creditos(
     State(state): State<AppState>,
+    user: AuthUser,
     Query(pagination): Query<Pagination>,
 ) -> Result<CreditosListTemplate, StatusCode> {
-    let (creditos, total) = state.credito_service.listar_creditos(pagination.page, 20).await
+    let (creditos, total) = state.credito_service.listar_creditos(user.id, pagination.page, 20).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let deuda_total: Decimal = creditos.iter().map(|c| c.saldo_pendiente).sum();
@@ -1025,7 +1060,7 @@ pub async fn list_creditos(
     })
 }
 
-pub async fn new_credito_form() -> NewCreditoTemplate {
+pub async fn new_credito_form(_user: AuthUser) -> NewCreditoTemplate {
     NewCreditoTemplate { title: "Nuevo Crédito".to_string() }
 }
 
@@ -1044,6 +1079,7 @@ pub struct CreateCreditoForm {
 
 pub async fn create_credito(
     State(state): State<AppState>,
+    user: AuthUser,
     Form(form): Form<CreateCreditoForm>,
 ) -> Result<Redirect, StatusCode> {
     let dto = CreateCreditoDto {
@@ -1058,7 +1094,7 @@ pub async fn create_credito(
         fecha_fin_estimada: form.fecha_fin_estimada.filter(|s| !s.is_empty()),
     };
 
-    state.credito_service.crear_credito(dto).await
+    state.credito_service.crear_credito(user.id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/creditos"))
@@ -1066,18 +1102,20 @@ pub async fn create_credito(
 
 pub async fn registrar_cuota_credito(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<Redirect, StatusCode> {
-    state.credito_service.registrar_cuota(id).await
+    state.credito_service.registrar_cuota(user.id, id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Redirect::to("/creditos"))
 }
 
 pub async fn edit_credito_form(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<EditCreditoTemplate, StatusCode> {
-    let credito = state.credito_service.obtener_credito(id).await
+    let credito = state.credito_service.obtener_credito(user.id, id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     Ok(EditCreditoTemplate {
         title: format!("Editar Crédito - {}", credito.descripcion),
@@ -1087,6 +1125,7 @@ pub async fn edit_credito_form(
 
 pub async fn update_credito(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
     Form(form): Form<CreateCreditoForm>,
 ) -> Result<Redirect, StatusCode> {
@@ -1102,7 +1141,7 @@ pub async fn update_credito(
         fecha_fin_estimada: form.fecha_fin_estimada.filter(|s| !s.is_empty()),
     };
 
-    state.credito_service.editar_credito(id, dto).await
+    state.credito_service.editar_credito(user.id, id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/creditos"))
@@ -1110,9 +1149,10 @@ pub async fn update_credito(
 
 pub async fn eliminar_credito(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<Redirect, StatusCode> {
-    state.credito_service.eliminar_credito(id).await
+    state.credito_service.eliminar_credito(user.id, id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Redirect::to("/creditos"))
 }
@@ -1121,9 +1161,10 @@ pub async fn eliminar_credito(
 
 pub async fn list_documentos(
     State(state): State<AppState>,
+    user: AuthUser,
     Query(pagination): Query<Pagination>,
 ) -> Result<DocumentosListTemplate, StatusCode> {
-    let (documentos, _) = state.documento_service.listar_documentos(pagination.page, 20).await
+    let (documentos, _) = state.documento_service.listar_documentos(user.id, pagination.page, 20).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(DocumentosListTemplate {
@@ -1132,12 +1173,13 @@ pub async fn list_documentos(
     })
 }
 
-pub async fn new_documento_form() -> NewDocumentoTemplate {
+pub async fn new_documento_form(_user: AuthUser) -> NewDocumentoTemplate {
     NewDocumentoTemplate { title: "Nuevo Documento".to_string() }
 }
 
 pub async fn create_documento(
     State(state): State<AppState>,
+    user: AuthUser,
     mut multipart: Multipart,
 ) -> Result<Redirect, StatusCode> {
     let mut nombre: Option<String> = None;
@@ -1181,7 +1223,7 @@ pub async fn create_documento(
         fecha_vencimiento,
     };
 
-    state.documento_service.crear_documento(dto, file_data, &file_name).await
+    state.documento_service.crear_documento(user.id, dto, file_data, &file_name).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/documentos"))
@@ -1189,9 +1231,10 @@ pub async fn create_documento(
 
 pub async fn eliminar_documento(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i32>,
 ) -> Result<Redirect, StatusCode> {
-    state.documento_service.eliminar_documento(id).await
+    state.documento_service.eliminar_documento(user.id, id).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Redirect::to("/documentos"))
 }

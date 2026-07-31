@@ -50,13 +50,13 @@ impl PagoRepository {
 
 #[async_trait]
 impl IPagoRepository for PagoRepository {
-    async fn create(&self, dto: CreatePagoDto) -> Result<PagoExistente> {
+    async fn create(&self, usuario_id: i64, dto: CreatePagoDto) -> Result<PagoExistente> {
         let now = Utc::now().naive_utc();
         
         let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
             r#"
-            INSERT INTO personal.pagos (descripcion, valor, saldo, estado, mes, anio, proyecto_id, fecha_creacion)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO personal.pagos (descripcion, valor, saldo, estado, mes, anio, proyecto_id, fecha_creacion, usuario_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
             "#
         )
@@ -68,24 +68,26 @@ impl IPagoRepository for PagoRepository {
         .bind(&dto.anio)
         .bind(dto.proyecto_id)
         .bind(now)
+        .bind(usuario_id)
         .fetch_one(&self.pool)
         .await?;
 
         Ok(Self::map_row_to_pago(row))
     }
 
-    async fn find_by_id(&self, id: i32) -> Result<Option<PagoExistente>> {
+    async fn find_by_id(&self, usuario_id: i64, id: i32) -> Result<Option<PagoExistente>> {
         let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
-            "SELECT id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion FROM personal.pagos WHERE id = $1"
+            "SELECT id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion FROM personal.pagos WHERE id = $1 AND usuario_id = $2"
         )
         .bind(id)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
         Ok(row.map(Self::map_row_to_pago))
     }
 
-    async fn registrar_pago(&self, id: i32, monto: Decimal) -> Result<Option<PagoExistente>> {
+    async fn registrar_pago(&self, usuario_id: i64, id: i32, monto: Decimal) -> Result<Option<PagoExistente>> {
         let now = Utc::now().naive_utc();
         
         let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
@@ -98,20 +100,21 @@ impl IPagoRepository for PagoRepository {
                     ELSE estado
                 END,
                 fecha_actualizacion = $3
-            WHERE id = $1
+            WHERE id = $1 AND usuario_id = $4
             RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
             "#
         )
         .bind(id)
         .bind(monto.to_string().parse::<BigDecimal>().unwrap())
         .bind(now)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
         Ok(row.map(Self::map_row_to_pago))
     }
 
-    async fn get_summary(&self, anio: &str) -> Result<PagosSummaryDto> {
+    async fn get_summary(&self, usuario_id: i64, anio: &str) -> Result<PagosSummaryDto> {
         let row = sqlx::query_as::<_, (Option<i64>, Option<BigDecimal>, Option<BigDecimal>, Option<i64>, Option<i64>)>(
             r#"
             SELECT 
@@ -121,9 +124,10 @@ impl IPagoRepository for PagoRepository {
                 COUNT(CASE WHEN estado = 'Pagado' THEN 1 END) as pagos_completados,
                 COUNT(CASE WHEN estado != 'Pagado' THEN 1 END) as pagos_pendientes
             FROM personal.pagos 
-            WHERE anio = $1
+            WHERE usuario_id = $1 AND anio = $2
             "#
         )
+        .bind(usuario_id)
         .bind(anio)
         .fetch_one(&self.pool)
         .await?;
@@ -137,20 +141,20 @@ impl IPagoRepository for PagoRepository {
         })
     }
 
-    async fn actualizar_evidencia(&self, id: i32, url: &str, tipo: &str) -> Result<Option<PagoExistente>> {
+    async fn actualizar_evidencia(&self, usuario_id: i64, id: i32, url: &str, tipo: &str) -> Result<Option<PagoExistente>> {
         let now = Utc::now().naive_utc();
         
         let query = match tipo {
             "cliente" => r#"
                 UPDATE personal.pagos
                 SET evidencia = $2, fecha_actualizacion = $3
-                WHERE id = $1
+                WHERE id = $1 AND usuario_id = $4
                 RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
             "#,
             "constructora" => r#"
                 UPDATE personal.pagos
                 SET evidencia_constructora = $2, fecha_actualizacion = $3
-                WHERE id = $1
+                WHERE id = $1 AND usuario_id = $4
                 RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
             "#,
             _ => return Err(anyhow::anyhow!("Tipo de evidencia inválido")),
@@ -160,54 +164,57 @@ impl IPagoRepository for PagoRepository {
             .bind(id)
             .bind(url)
             .bind(now)
+            .bind(usuario_id)
             .fetch_optional(&self.pool)
             .await?;
 
         Ok(row.map(Self::map_row_to_pago))
     }
 
-    async fn marcar_pagado(&self, id: i32) -> Result<Option<PagoExistente>> {
+    async fn marcar_pagado(&self, usuario_id: i64, id: i32) -> Result<Option<PagoExistente>> {
         let now = Utc::now().naive_utc();
         
         let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
             r#"
             UPDATE personal.pagos 
             SET saldo = 0, estado = 'Pagado', fecha_actualizacion = $2
-            WHERE id = $1
+            WHERE id = $1 AND usuario_id = $3
             RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
             "#
         )
         .bind(id)
         .bind(now)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
         Ok(row.map(Self::map_row_to_pago))
     }
 
-    async fn delete(&self, id: i32) -> Result<Option<PagoExistente>> {
+    async fn delete(&self, usuario_id: i64, id: i32) -> Result<Option<PagoExistente>> {
         let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
             r#"
             DELETE FROM personal.pagos 
-            WHERE id = $1
+            WHERE id = $1 AND usuario_id = $2
             RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
             "#
         )
         .bind(id)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
         Ok(row.map(Self::map_row_to_pago))
     }
 
-    async fn update(&self, id: i32, descripcion: &str, valor: Decimal, mes: &str, anio: &str) -> Result<Option<PagoExistente>> {
+    async fn update(&self, usuario_id: i64, id: i32, descripcion: &str, valor: Decimal, mes: &str, anio: &str) -> Result<Option<PagoExistente>> {
         let now = Utc::now().naive_utc();
         
         let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
             r#"
             UPDATE personal.pagos 
             SET descripcion = $2, valor = $3, saldo = $3, mes = $4, anio = $5, fecha_actualizacion = $6
-            WHERE id = $1
+            WHERE id = $1 AND usuario_id = $7
             RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
             "#
         )
@@ -217,6 +224,7 @@ impl IPagoRepository for PagoRepository {
         .bind(mes)
         .bind(anio)
         .bind(now)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 

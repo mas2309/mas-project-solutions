@@ -92,7 +92,7 @@ fn demo_existing_entities() {
         "/uploads/evidencias/evidencia_pago_enero_2024.pdf".to_string(),
         "application/pdf".to_string(),
         1024000, // 1MB
-        usuario.id,
+        usuario.id as i32,
         Some(pago.id),
     );
     
@@ -149,13 +149,13 @@ async fn demo_database_connection(config: &AppConfig) -> anyhow::Result<()> {
                 proyecto_id: None,
             };
             
-            match pago_repo.create(create_pago_dto).await {
+            match pago_repo.create(1_i64, create_pago_dto).await {
                 Ok(pago) => {
                     println!("✅ Pago creado en BD: {} (ID: {})", pago.descripcion, pago.id);
                     println!("   💰 Valor: ${}, Estado: {}", pago.valor, pago.estado.to_string());
                     
                     // Registrar pago parcial
-                    if let Ok(Some(pago_actualizado)) = pago_repo.registrar_pago(pago.id, rust_decimal::Decimal::from(15000)).await {
+                    if let Ok(Some(pago_actualizado)) = pago_repo.registrar_pago(1_i64, pago.id, rust_decimal::Decimal::from(15000)).await {
                         println!("✅ Pago parcial registrado:");
                         println!("   💰 Nuevo saldo: ${}", pago_actualizado.saldo.unwrap_or(rust_decimal::Decimal::ZERO));
                         println!("   📅 Estado: {}", pago_actualizado.estado.to_string());
@@ -168,7 +168,7 @@ async fn demo_database_connection(config: &AppConfig) -> anyhow::Result<()> {
     }
     
     // Obtener resumen de pagos
-    match pago_repo.get_summary("2024").await {
+    match pago_repo.get_summary(1_i64, "2024").await {
         Ok(summary) => {
             println!("\n📊 Resumen de Pagos 2024:");
             println!("   📊 Total pagos: {}", summary.total_pagos);
@@ -208,7 +208,7 @@ async fn demo_database_connection(config: &AppConfig) -> anyhow::Result<()> {
     
     // Obtener resumen de proyectos
     let proyecto_repo_trait: Arc<dyn IProyectoRepository> = Arc::new(proyecto_repo);
-    match proyecto_repo_trait.get_summary().await {
+    match proyecto_repo_trait.get_summary(1_i64).await {
         Ok(summary) => {
             println!("\n📊 Resumen de Proyectos:");
             println!("   📊 Total proyectos: {}", summary.total_proyectos);

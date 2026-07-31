@@ -26,13 +26,13 @@ impl ProyectoRepository {
         bd_opt.map(|bd| Self::bigdecimal_to_decimal(bd))
     }
 
-    pub async fn create(&self, dto: CreateProyectoDto) -> Result<Proyecto> {
+    pub async fn create_impl(&self, usuario_id: i64, dto: CreateProyectoDto) -> Result<Proyecto> {
         let now = Utc::now().naive_utc();
         
         let row = sqlx::query_as::<_, (i32, String, Option<String>, Option<BigDecimal>, Option<BigDecimal>, String, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
             r#"
-            INSERT INTO personal.proyectos (nombre, descripcion, presupuesto, costo_actual, estado, fecha_fin_estimada, cliente, responsable, fecha_creacion)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO personal.proyectos (nombre, descripcion, presupuesto, costo_actual, estado, fecha_fin_estimada, cliente, responsable, fecha_creacion, usuario_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
             "#
         )
@@ -45,6 +45,7 @@ impl ProyectoRepository {
         .bind(&dto.cliente)
         .bind(&dto.responsable)
         .bind(now)
+        .bind(usuario_id)
         .fetch_one(&self.pool)
         .await?;
 
@@ -65,7 +66,7 @@ impl ProyectoRepository {
         })
     }
 
-    pub async fn update(&self, id: i32, dto: UpdateProyectoDto) -> Result<Option<Proyecto>> {
+    pub async fn update_impl(&self, usuario_id: i64, id: i32, dto: UpdateProyectoDto) -> Result<Option<Proyecto>> {
         let now = Utc::now().naive_utc();
         
         let row = sqlx::query_as::<_, (i32, String, Option<String>, Option<BigDecimal>, Option<BigDecimal>, String, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
@@ -78,7 +79,7 @@ impl ProyectoRepository {
                 cliente = COALESCE($6, cliente),
                 responsable = COALESCE($7, responsable),
                 fecha_actualizacion = $8
-            WHERE id = $1
+            WHERE id = $1 AND usuario_id = $9
             RETURNING id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
             "#
         )
@@ -90,6 +91,7 @@ impl ProyectoRepository {
         .bind(&dto.cliente)
         .bind(&dto.responsable)
         .bind(now)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
@@ -110,7 +112,7 @@ impl ProyectoRepository {
         }))
     }
 
-    pub async fn cambiar_estado(&self, id: i32, nuevo_estado: &str) -> Result<Option<Proyecto>> {
+    pub async fn cambiar_estado_impl(&self, usuario_id: i64, id: i32, nuevo_estado: &str) -> Result<Option<Proyecto>> {
         let now = Utc::now().naive_utc();
         
         let row = sqlx::query_as::<_, (i32, String, Option<String>, Option<BigDecimal>, Option<BigDecimal>, String, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
@@ -120,13 +122,14 @@ impl ProyectoRepository {
                 fecha_inicio = CASE WHEN $2 = 'En_Progreso' AND fecha_inicio IS NULL THEN $3 ELSE fecha_inicio END,
                 fecha_fin_real = CASE WHEN $2 = 'Completado' THEN $3 ELSE fecha_fin_real END,
                 fecha_actualizacion = $3
-            WHERE id = $1
+            WHERE id = $1 AND usuario_id = $4
             RETURNING id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
             "#
         )
         .bind(id)
         .bind(nuevo_estado)
         .bind(now)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
@@ -150,10 +153,11 @@ impl ProyectoRepository {
 
 #[async_trait]
 impl IProyectoRepository for ProyectoRepository {
-    async fn list_all(&self) -> Result<Vec<Proyecto>> {
+    async fn list_all(&self, usuario_id: i64) -> Result<Vec<Proyecto>> {
         let rows = sqlx::query_as::<_, (i32, String, Option<String>, Option<BigDecimal>, Option<BigDecimal>, String, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
-            "SELECT id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion FROM personal.proyectos ORDER BY fecha_creacion DESC"
+            "SELECT id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion FROM personal.proyectos WHERE usuario_id = $1 ORDER BY fecha_creacion DESC"
         )
+        .bind(usuario_id)
         .fetch_all(&self.pool)
         .await?;
 
@@ -174,7 +178,7 @@ impl IProyectoRepository for ProyectoRepository {
         }).collect())
     }
 
-    async fn get_summary(&self) -> Result<ProyectoSummaryDto> {
+    async fn get_summary(&self, usuario_id: i64) -> Result<ProyectoSummaryDto> {
         let row = sqlx::query_as::<_, (Option<i64>, Option<i64>, Option<i64>, Option<BigDecimal>, Option<BigDecimal>, Option<i64>)>(
             r#"
             SELECT 
@@ -185,8 +189,10 @@ impl IProyectoRepository for ProyectoRepository {
                 COALESCE(SUM(costo_actual), 0) as costo_total,
                 COUNT(CASE WHEN costo_actual > presupuesto THEN 1 END) as proyectos_sobre_presupuesto
             FROM personal.proyectos
+            WHERE usuario_id = $1
             "#
         )
+        .bind(usuario_id)
         .fetch_one(&self.pool)
         .await?;
 
@@ -200,11 +206,12 @@ impl IProyectoRepository for ProyectoRepository {
         })
     }
 
-    async fn find_by_id(&self, id: i32) -> Result<Option<Proyecto>> {
+    async fn find_by_id(&self, usuario_id: i64, id: i32) -> Result<Option<Proyecto>> {
         let row = sqlx::query_as::<_, (i32, String, Option<String>, Option<BigDecimal>, Option<BigDecimal>, String, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
-            "SELECT id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion FROM personal.proyectos WHERE id = $1"
+            "SELECT id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion FROM personal.proyectos WHERE id = $1 AND usuario_id = $2"
         )
         .bind(id)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
@@ -225,32 +232,37 @@ impl IProyectoRepository for ProyectoRepository {
         }))
     }
 
-    async fn create(&self, dto: CreateProyectoDto) -> Result<Proyecto> {
-        ProyectoRepository::create(self, dto).await
+    async fn create(&self, usuario_id: i64, dto: CreateProyectoDto) -> Result<Proyecto> {
+        ProyectoRepository::create_impl(self, usuario_id, dto).await
     }
 
-    async fn update(&self, id: i32, dto: UpdateProyectoDto) -> Result<Option<Proyecto>> {
-        ProyectoRepository::update(self, id, dto).await
+    async fn update(&self, usuario_id: i64, id: i32, dto: UpdateProyectoDto) -> Result<Option<Proyecto>> {
+        ProyectoRepository::update_impl(self, usuario_id, id, dto).await
     }
 
-    async fn get_pagos_by_proyecto(&self, proyecto_id: i32, page: u32, page_size: u32) -> Result<(Vec<PagoExistente>, i64)> {
+    async fn get_pagos_by_proyecto(&self, usuario_id: i64, proyecto_id: i32, page: u32, page_size: u32) -> Result<(Vec<PagoExistente>, i64)> {
         let offset = (page - 1) * page_size;
 
         let rows = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
-            "SELECT id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion 
-             FROM personal.pagos 
-             WHERE proyecto_id = $1 
-             ORDER BY anio, mes
-             LIMIT $2 OFFSET $3"
+            "SELECT p.id, p.descripcion, p.valor, p.saldo, p.estado, p.mes, p.anio, p.proyecto_id, p.evidencia, p.evidencia_constructora, p.fecha_creacion, p.fecha_actualizacion 
+             FROM personal.pagos p
+             INNER JOIN personal.proyectos pr ON pr.id = p.proyecto_id
+             WHERE p.proyecto_id = $1 AND pr.usuario_id = $2
+             ORDER BY p.anio, p.mes
+             LIMIT $3 OFFSET $4"
         )
         .bind(proyecto_id)
+        .bind(usuario_id)
         .bind(page_size as i64)
         .bind(offset as i64)
         .fetch_all(&self.pool)
         .await?;
 
-        let total_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM personal.pagos WHERE proyecto_id = $1")
+        let total_count: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM personal.pagos p INNER JOIN personal.proyectos pr ON pr.id = p.proyecto_id WHERE p.proyecto_id = $1 AND pr.usuario_id = $2"
+        )
             .bind(proyecto_id)
+            .bind(usuario_id)
             .fetch_one(&self.pool)
             .await?;
 
@@ -272,40 +284,7 @@ impl IProyectoRepository for ProyectoRepository {
         Ok((pagos, total_count.0))
     }
 
-    async fn cambiar_estado(&self, id: i32, nuevo_estado: &str) -> Result<Option<Proyecto>> {
-        let now = Utc::now().naive_utc();
-        
-        let row = sqlx::query_as::<_, (i32, String, Option<String>, Option<BigDecimal>, Option<BigDecimal>, String, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
-            r#"
-            UPDATE personal.proyectos 
-            SET estado = $2,
-                fecha_inicio = CASE WHEN $2 = 'En_Progreso' AND fecha_inicio IS NULL THEN $3 ELSE fecha_inicio END,
-                fecha_fin_real = CASE WHEN $2 = 'Completado' THEN $3 ELSE fecha_fin_real END,
-                fecha_actualizacion = $3
-            WHERE id = $1
-            RETURNING id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
-            "#
-        )
-        .bind(id)
-        .bind(nuevo_estado)
-        .bind(now)
-        .fetch_optional(&self.pool)
-        .await?;
-
-        Ok(row.map(|r| Proyecto {
-            id: r.0,
-            nombre: r.1,
-            descripcion: r.2,
-            presupuesto: Self::bigdecimal_opt_to_decimal_opt(r.3),
-            costo_actual: Self::bigdecimal_opt_to_decimal_opt(r.4),
-            estado: r.5.into(),
-            fecha_inicio: r.6.map(|dt| dt.to_string()),
-            fecha_fin_estimada: r.7.map(|dt| dt.to_string()),
-            fecha_fin_real: r.8.map(|dt| dt.to_string()),
-            cliente: r.9,
-            responsable: r.10,
-            fecha_creacion: r.11.to_string(),
-            fecha_actualizacion: r.12.map(|dt| dt.to_string()),
-        }))
+    async fn cambiar_estado(&self, usuario_id: i64, id: i32, nuevo_estado: &str) -> Result<Option<Proyecto>> {
+        ProyectoRepository::cambiar_estado_impl(self, usuario_id, id, nuevo_estado).await
     }
 }

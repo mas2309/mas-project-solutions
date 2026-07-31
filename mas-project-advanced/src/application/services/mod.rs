@@ -6,3 +6,4 @@ pub mod gasto_service;
 pub mod credito_service;
 pub mod documento_service;
 pub mod gasto_recurrente_service;
+pub mod auth_service;

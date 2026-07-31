@@ -1,9 +1,11 @@
 use axum::{
     routing::{get, post},
     Router,
+    middleware::from_fn_with_state,
 };
 use tower_http::services::ServeDir;
 use tower_http::cors::{CorsLayer, Any};
+use tower_cookies::CookieManagerLayer;
 use std::sync::Arc;
 use crate::application::services::proyecto_service::ProyectoService;
 use crate::application::services::pago_service::PagoService;
@@ -12,9 +14,12 @@ use crate::application::services::gasto_service::GastoService;
 use crate::application::services::credito_service::CreditoService;
 use crate::application::services::documento_service::DocumentoService;
 use crate::application::services::gasto_recurrente_service::GastoRecurrenteService;
+use crate::application::services::auth_service::AuthService;
 
 use super::handlers::*;
+use super::auth_handlers::*;
 use crate::presentation::api::routes::api_routes;
+use crate::presentation::middleware::{auth_guard, admin_guard};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -25,10 +30,28 @@ pub struct AppState {
     pub credito_service: Arc<CreditoService>,
     pub documento_service: Arc<DocumentoService>,
     pub gasto_recurrente_service: Arc<GastoRecurrenteService>,
+    pub auth_service: Arc<AuthService>,
 }
 
 pub fn create_app(state: AppState) -> Router {
-    Router::new()
+    // Rutas públicas (sin autenticación)
+    let public_routes = Router::new()
+        .route("/login", get(login_page))
+        .route("/login", post(login_submit))
+        .route("/auth/register", get(register_page))
+        .route("/auth/register", post(register_submit))
+        .route("/auth/logout", post(logout));
+
+    // Rutas de administración (requieren admin)
+    let admin_routes = Router::new()
+        .route("/auth/admin/users", get(admin_users_page))
+        .route("/auth/admin/users/:id/activate", post(activate_user))
+        .route("/auth/admin/users/:id/deactivate", post(deactivate_user))
+        .route_layer(from_fn_with_state(state.clone(), admin_guard))
+        .route_layer(from_fn_with_state(state.clone(), auth_guard));
+
+    // Rutas protegidas (requieren autenticación)
+    let protected_routes = Router::new()
         .route("/", get(home))
         .route("/dashboard", get(dashboard))
         .route("/proyectos", get(list_proyectos))
@@ -84,13 +107,23 @@ pub fn create_app(state: AppState) -> Router {
         .route("/documentos/new", get(new_documento_form))
         .route("/documentos", post(create_documento))
         .route("/documentos/:id/eliminar", post(eliminar_documento))
-        // API REST para app móvil
-        .nest("/api/v1", api_routes())
+        .route_layer(from_fn_with_state(state.clone(), auth_guard));
+
+    // API REST protegida
+    let api = api_routes()
+        .route_layer(from_fn_with_state(state.clone(), auth_guard));
+
+    Router::new()
+        .merge(public_routes)
+        .merge(admin_routes)
+        .merge(protected_routes)
+        .nest("/api/v1", api)
         .nest_service("/static", ServeDir::new("static"))
         .layer(CorsLayer::new()
             .allow_origin(Any)
             .allow_methods(Any)
             .allow_headers(Any)
         )
+        .layer(CookieManagerLayer::new())
         .with_state(state)
 }

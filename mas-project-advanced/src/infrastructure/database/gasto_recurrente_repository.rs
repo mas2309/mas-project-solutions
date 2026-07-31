@@ -41,12 +41,12 @@ const SELECT_FIELDS: &str = "id, descripcion, monto_referencia, categoria, tipo,
 
 #[async_trait]
 impl IGastoRecurrenteRepository for GastoRecurrenteRepository {
-    async fn create(&self, dto: CreateGastoRecurrenteDto) -> Result<GastoRecurrente> {
+    async fn create(&self, usuario_id: i64, dto: CreateGastoRecurrenteDto) -> Result<GastoRecurrente> {
         let now = Utc::now().naive_utc();
 
         let row = sqlx::query_as::<_, (i32, String, BigDecimal, String, String, Option<String>, bool, i32, chrono::NaiveDateTime)>(
             &format!(
-                "INSERT INTO personal.gastos_recurrentes (descripcion, monto_referencia, categoria, tipo, responsable, dia_facturacion, fecha_creacion) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING {}",
+                "INSERT INTO personal.gastos_recurrentes (descripcion, monto_referencia, categoria, tipo, responsable, dia_facturacion, fecha_creacion, usuario_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING {}",
                 SELECT_FIELDS
             )
         )
@@ -57,47 +57,51 @@ impl IGastoRecurrenteRepository for GastoRecurrenteRepository {
         .bind(&dto.responsable)
         .bind(dto.dia_facturacion)
         .bind(now)
+        .bind(usuario_id)
         .fetch_one(&self.pool)
         .await?;
 
         Ok(Self::map_row(row))
     }
 
-    async fn find_by_id(&self, id: i32) -> Result<Option<GastoRecurrente>> {
+    async fn find_by_id(&self, usuario_id: i64, id: i32) -> Result<Option<GastoRecurrente>> {
         let row = sqlx::query_as::<_, (i32, String, BigDecimal, String, String, Option<String>, bool, i32, chrono::NaiveDateTime)>(
-            &format!("SELECT {} FROM personal.gastos_recurrentes WHERE id = $1", SELECT_FIELDS)
+            &format!("SELECT {} FROM personal.gastos_recurrentes WHERE id = $1 AND usuario_id = $2", SELECT_FIELDS)
         )
         .bind(id)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
         Ok(row.map(Self::map_row))
     }
 
-    async fn list_activos(&self) -> Result<Vec<GastoRecurrente>> {
+    async fn list_activos(&self, usuario_id: i64) -> Result<Vec<GastoRecurrente>> {
         let rows = sqlx::query_as::<_, (i32, String, BigDecimal, String, String, Option<String>, bool, i32, chrono::NaiveDateTime)>(
-            &format!("SELECT {} FROM personal.gastos_recurrentes WHERE activo = true ORDER BY dia_facturacion, descripcion", SELECT_FIELDS)
+            &format!("SELECT {} FROM personal.gastos_recurrentes WHERE activo = true AND usuario_id = $1 ORDER BY dia_facturacion, descripcion", SELECT_FIELDS)
         )
+        .bind(usuario_id)
         .fetch_all(&self.pool)
         .await?;
 
         Ok(rows.into_iter().map(Self::map_row).collect())
     }
 
-    async fn list_all(&self) -> Result<Vec<GastoRecurrente>> {
+    async fn list_all(&self, usuario_id: i64) -> Result<Vec<GastoRecurrente>> {
         let rows = sqlx::query_as::<_, (i32, String, BigDecimal, String, String, Option<String>, bool, i32, chrono::NaiveDateTime)>(
-            &format!("SELECT {} FROM personal.gastos_recurrentes ORDER BY activo DESC, dia_facturacion, descripcion", SELECT_FIELDS)
+            &format!("SELECT {} FROM personal.gastos_recurrentes WHERE usuario_id = $1 ORDER BY activo DESC, dia_facturacion, descripcion", SELECT_FIELDS)
         )
+        .bind(usuario_id)
         .fetch_all(&self.pool)
         .await?;
 
         Ok(rows.into_iter().map(Self::map_row).collect())
     }
 
-    async fn update(&self, id: i32, dto: CreateGastoRecurrenteDto) -> Result<Option<GastoRecurrente>> {
+    async fn update(&self, usuario_id: i64, id: i32, dto: CreateGastoRecurrenteDto) -> Result<Option<GastoRecurrente>> {
         let row = sqlx::query_as::<_, (i32, String, BigDecimal, String, String, Option<String>, bool, i32, chrono::NaiveDateTime)>(
             &format!(
-                "UPDATE personal.gastos_recurrentes SET descripcion=$2, monto_referencia=$3, categoria=$4, tipo=$5, responsable=$6, dia_facturacion=$7 WHERE id=$1 RETURNING {}",
+                "UPDATE personal.gastos_recurrentes SET descripcion=$2, monto_referencia=$3, categoria=$4, tipo=$5, responsable=$6, dia_facturacion=$7 WHERE id=$1 AND usuario_id=$8 RETURNING {}",
                 SELECT_FIELDS
             )
         )
@@ -108,34 +112,37 @@ impl IGastoRecurrenteRepository for GastoRecurrenteRepository {
         .bind(&dto.tipo)
         .bind(&dto.responsable)
         .bind(dto.dia_facturacion)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
         Ok(row.map(Self::map_row))
     }
 
-    async fn toggle_activo(&self, id: i32) -> Result<Option<GastoRecurrente>> {
+    async fn toggle_activo(&self, usuario_id: i64, id: i32) -> Result<Option<GastoRecurrente>> {
         let row = sqlx::query_as::<_, (i32, String, BigDecimal, String, String, Option<String>, bool, i32, chrono::NaiveDateTime)>(
             &format!(
-                "UPDATE personal.gastos_recurrentes SET activo = NOT activo WHERE id=$1 RETURNING {}",
+                "UPDATE personal.gastos_recurrentes SET activo = NOT activo WHERE id=$1 AND usuario_id=$2 RETURNING {}",
                 SELECT_FIELDS
             )
         )
         .bind(id)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
         Ok(row.map(Self::map_row))
     }
 
-    async fn delete(&self, id: i32) -> Result<Option<GastoRecurrente>> {
+    async fn delete(&self, usuario_id: i64, id: i32) -> Result<Option<GastoRecurrente>> {
         let row = sqlx::query_as::<_, (i32, String, BigDecimal, String, String, Option<String>, bool, i32, chrono::NaiveDateTime)>(
             &format!(
-                "DELETE FROM personal.gastos_recurrentes WHERE id=$1 RETURNING {}",
+                "DELETE FROM personal.gastos_recurrentes WHERE id=$1 AND usuario_id=$2 RETURNING {}",
                 SELECT_FIELDS
             )
         )
         .bind(id)
+        .bind(usuario_id)
         .fetch_optional(&self.pool)
         .await?;
 
@@ -143,16 +150,18 @@ impl IGastoRecurrenteRepository for GastoRecurrenteRepository {
     }
 
     /// Retorna los IDs de gastos_recurrentes que ya fueron generados para el mes dado
-    async fn ya_generados_en_mes(&self, anio: i32, mes: u32) -> Result<Vec<i32>> {
+    async fn ya_generados_en_mes(&self, usuario_id: i64, anio: i32, mes: u32) -> Result<Vec<i32>> {
         let rows = sqlx::query_as::<_, (i32,)>(
             r#"
             SELECT DISTINCT g.gasto_recurrente_id 
             FROM personal.gastos g
             WHERE g.gasto_recurrente_id IS NOT NULL
-              AND EXTRACT(YEAR FROM g.fecha) = $1
-              AND EXTRACT(MONTH FROM g.fecha) = $2
+              AND g.usuario_id = $1
+              AND EXTRACT(YEAR FROM g.fecha) = $2
+              AND EXTRACT(MONTH FROM g.fecha) = $3
             "#
         )
+        .bind(usuario_id)
         .bind(anio)
         .bind(mes as i32)
         .fetch_all(&self.pool)
