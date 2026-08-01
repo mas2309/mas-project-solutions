@@ -213,7 +213,12 @@ impl IPagoRepository for PagoRepository {
         let row = sqlx::query_as::<_, (i64, String, BigDecimal, Option<BigDecimal>, String, String, String, Option<i32>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
             r#"
             UPDATE personal.pagos 
-            SET descripcion = $2, valor = $3, saldo = $3, mes = $4, anio = $5, fecha_actualizacion = $6
+            SET descripcion = $2, 
+                valor = $3, 
+                saldo = saldo + ($3 - valor),
+                mes = $4, 
+                anio = $5, 
+                fecha_actualizacion = $6
             WHERE id = $1 AND usuario_id = $7
             RETURNING id, descripcion, valor, saldo, estado, mes, anio, proyecto_id, evidencia, evidencia_constructora, fecha_creacion, fecha_actualizacion
             "#
