@@ -65,7 +65,6 @@ pub async fn start_web_server(config: &AppConfig) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(&config.server_address()).await?;
     println!("🌐 Servidor ejecutándose en http://{}", config.server_address());
     println!("📋 Visita http://{}/login para iniciar sesión", config.server_address());
-    println!("👤 Usuario admin por defecto: admin / Admin123!");
     
     axum::serve(listener, app).await?;
     Ok(())

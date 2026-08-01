@@ -57,11 +57,11 @@ pub struct AuthService {
 impl AuthService {
     pub fn new(usuario_repository: Arc<UsuarioRepository>) -> Self {
         let jwt_secret = std::env::var("JWT_SECRET")
-            .unwrap_or_else(|_| "default-secret-change-in-production".to_string());
+            .expect("⚠️ JWT_SECRET debe estar configurado. No se puede iniciar sin esta variable de entorno.");
         let jwt_expiration_hours = std::env::var("JWT_EXPIRATION_HOURS")
-            .unwrap_or_else(|_| "24".to_string())
+            .unwrap_or_else(|_| "8".to_string())
             .parse::<i64>()
-            .unwrap_or(24);
+            .unwrap_or(8);
 
         Self {
             usuario_repository,
@@ -71,11 +71,14 @@ impl AuthService {
     }
 
     /// Asegura que exista un usuario admin.
-    /// Se llama al iniciar la aplicación.
+    /// La contraseña se lee de ADMIN_DEFAULT_PASSWORD o usa un valor por defecto seguro.
     pub async fn ensure_admin_exists(&self) -> Result<()> {
         let admin = self.usuario_repository.find_by_username("admin").await?;
         if admin.is_none() {
-            let hashed_password = hash("Admin123!", DEFAULT_COST)
+            let admin_password = std::env::var("ADMIN_DEFAULT_PASSWORD")
+                .unwrap_or_else(|_| "Admin123!".to_string());
+            
+            let hashed_password = hash(&admin_password, DEFAULT_COST)
                 .map_err(|e| anyhow!("Error al hashear la contraseña del admin: {}", e))?;
             
             let create_dto = CreateUsuarioDto {
@@ -87,7 +90,7 @@ impl AuthService {
             };
             
             self.usuario_repository.create(create_dto).await?;
-            println!("👤 Usuario admin creado: admin / Admin123!");
+            println!("👤 Usuario admin creado. Cambie la contraseña por defecto lo antes posible.");
         }
         Ok(())
     }
@@ -95,10 +98,35 @@ impl AuthService {
     /// Registra un nuevo usuario con contraseña hasheada.
     /// El usuario se crea con activo=false (requiere activación por admin).
     pub async fn register(&self, dto: RegisterDto) -> Result<Usuario> {
+        // Validaciones de input
+        let username = dto.username.trim().to_string();
+        let email = dto.email.trim().to_lowercase();
+        let nombre_completo = dto.nombre_completo.trim().to_string();
+
+        if username.len() < 3 || username.len() > 50 {
+            return Err(anyhow!("El nombre de usuario debe tener entre 3 y 50 caracteres"));
+        }
+
+        if !username.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+            return Err(anyhow!("El nombre de usuario solo puede contener letras, números, guiones y guiones bajos"));
+        }
+
+        if dto.password.len() < 8 {
+            return Err(anyhow!("La contraseña debe tener al menos 8 caracteres"));
+        }
+
+        if !email.contains('@') || !email.contains('.') || email.len() < 5 {
+            return Err(anyhow!("El formato del correo electrónico no es válido"));
+        }
+
+        if nombre_completo.is_empty() || nombre_completo.len() > 100 {
+            return Err(anyhow!("El nombre completo es requerido y no puede exceder 100 caracteres"));
+        }
+
         // Verificar que el username no esté en uso
-        let existing = self.usuario_repository.find_by_username(&dto.username).await?;
+        let existing = self.usuario_repository.find_by_username(&username).await?;
         if existing.is_some() {
-            return Err(anyhow!("El nombre de usuario '{}' ya está en uso", dto.username));
+            return Err(anyhow!("El nombre de usuario '{}' ya está en uso", username));
         }
 
         // Hashear la contraseña
@@ -107,9 +135,9 @@ impl AuthService {
 
         // Crear el DTO para el repositorio
         let create_dto = CreateUsuarioDto {
-            username: dto.username,
-            email: dto.email,
-            nombre_completo: dto.nombre_completo,
+            username,
+            email,
+            nombre_completo,
             password: hashed_password,
             rol: "usuario".to_string(), // Rol por defecto
         };

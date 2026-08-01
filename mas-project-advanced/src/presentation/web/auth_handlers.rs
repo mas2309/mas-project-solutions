@@ -76,10 +76,12 @@ pub async fn login_submit(
 ) -> Response {
     match state.auth_service.login(&form.username, &form.password).await {
         Ok(login_response) => {
-            // Establecer cookie con el token JWT
+            // Establecer cookie segura con el token JWT
             let mut cookie = Cookie::new(AUTH_COOKIE_NAME, login_response.token);
             cookie.set_path("/");
             cookie.set_http_only(true);
+            cookie.set_same_site(tower_cookies::cookie::SameSite::Lax);
+            cookie.set_secure(true);
             cookies.add(cookie);
             
             // Redirigir al dashboard
