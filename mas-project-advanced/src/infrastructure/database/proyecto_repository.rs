@@ -248,7 +248,7 @@ impl IProyectoRepository for ProyectoRepository {
              FROM personal.pagos p
              INNER JOIN personal.proyectos pr ON pr.id = p.proyecto_id
              WHERE p.proyecto_id = $1 AND pr.usuario_id = $2
-             ORDER BY p.anio, p.mes
+             ORDER BY p.anio DESC, p.fecha_creacion DESC
              LIMIT $3 OFFSET $4"
         )
         .bind(proyecto_id)

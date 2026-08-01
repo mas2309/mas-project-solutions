@@ -585,16 +585,20 @@ pub async fn list_ingresos(
     user: AuthUser,
     Query(pagination): Query<Pagination>,
 ) -> Result<IngresosListTemplate, StatusCode> {
-    let (ingresos, total) = state.ingreso_service.listar_ingresos(user.id, pagination.page, 20).await
+    let page_size = 20;
+    let (ingresos, total) = state.ingreso_service.listar_ingresos(user.id, pagination.page, page_size).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     let monto_total: Decimal = ingresos.iter().map(|i| i.monto).sum();
+    let total_pages = (total as f64 / page_size as f64).ceil() as u32;
 
     Ok(IngresosListTemplate {
         title: "Ingresos".to_string(),
         total_ingresos: total as usize,
         monto_total,
         ingresos,
+        current_page: pagination.page,
+        total_pages,
     })
 }
 
@@ -655,16 +659,20 @@ pub async fn list_gastos(
     // Auto-generar los gastos fijos cuyo día de facturación ya pasó
     let _ = state.gasto_recurrente_service.auto_generar_fijos(user.id).await;
 
-    let (gastos, total) = state.gasto_service.listar_gastos(user.id, pagination.page, 20).await
+    let page_size = 20;
+    let (gastos, total) = state.gasto_service.listar_gastos(user.id, pagination.page, page_size).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     let monto_total: Decimal = gastos.iter().map(|g| g.monto).sum();
+    let total_pages = (total as f64 / page_size as f64).ceil() as u32;
 
     Ok(GastosListTemplate {
         title: "Gastos".to_string(),
         total_gastos: total as usize,
         monto_total,
         gastos,
+        current_page: pagination.page,
+        total_pages,
     })
 }
 
@@ -1047,16 +1055,20 @@ pub async fn list_creditos(
     user: AuthUser,
     Query(pagination): Query<Pagination>,
 ) -> Result<CreditosListTemplate, StatusCode> {
-    let (creditos, total) = state.credito_service.listar_creditos(user.id, pagination.page, 20).await
+    let page_size = 20;
+    let (creditos, total) = state.credito_service.listar_creditos(user.id, pagination.page, page_size).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let deuda_total: Decimal = creditos.iter().map(|c| c.saldo_pendiente).sum();
+    let total_pages = (total as f64 / page_size as f64).ceil() as u32;
 
     Ok(CreditosListTemplate {
         title: "Créditos".to_string(),
         total_creditos: total as usize,
         deuda_total,
         creditos,
+        current_page: pagination.page,
+        total_pages,
     })
 }
 
@@ -1164,12 +1176,17 @@ pub async fn list_documentos(
     user: AuthUser,
     Query(pagination): Query<Pagination>,
 ) -> Result<DocumentosListTemplate, StatusCode> {
-    let (documentos, _) = state.documento_service.listar_documentos(user.id, pagination.page, 20).await
+    let page_size = 20;
+    let (documentos, total) = state.documento_service.listar_documentos(user.id, pagination.page, page_size).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let total_pages = (total as f64 / page_size as f64).ceil() as u32;
 
     Ok(DocumentosListTemplate {
         title: "Documentos Importantes".to_string(),
         documentos,
+        total_documentos: total as usize,
+        current_page: pagination.page,
+        total_pages,
     })
 }
 

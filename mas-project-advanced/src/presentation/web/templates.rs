@@ -128,6 +128,8 @@ pub struct IngresosListTemplate {
     pub ingresos: Vec<Ingreso>,
     pub total_ingresos: usize,
     pub monto_total: Decimal,
+    pub current_page: u32,
+    pub total_pages: u32,
 }
 
 #[derive(Template)]
@@ -143,6 +145,8 @@ pub struct GastosListTemplate {
     pub gastos: Vec<Gasto>,
     pub total_gastos: usize,
     pub monto_total: Decimal,
+    pub current_page: u32,
+    pub total_pages: u32,
 }
 
 #[derive(Template)]
@@ -172,6 +176,8 @@ pub struct CreditosListTemplate {
     pub creditos: Vec<Credito>,
     pub total_creditos: usize,
     pub deuda_total: Decimal,
+    pub current_page: u32,
+    pub total_pages: u32,
 }
 
 #[derive(Template)]
@@ -192,6 +198,9 @@ pub struct EditCreditoTemplate {
 pub struct DocumentosListTemplate {
     pub title: String,
     pub documentos: Vec<Documento>,
+    pub total_documentos: usize,
+    pub current_page: u32,
+    pub total_pages: u32,
 }
 
 #[derive(Template)]
