@@ -2,6 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
     middleware::from_fn_with_state,
+    extract::DefaultBodyLimit,
 };
 use tower_http::services::ServeDir;
 use tower_http::cors::{CorsLayer, Any};
@@ -125,5 +126,6 @@ pub fn create_app(state: AppState) -> Router {
             .allow_headers(Any)
         )
         .layer(CookieManagerLayer::new())
+        .layer(DefaultBodyLimit::max(20 * 1024 * 1024)) // 20MB max upload
         .with_state(state)
 }
