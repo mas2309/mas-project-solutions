@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use crate::domain::entities::Gasto;
 use crate::application::dto::CreateGastoDto;
 use anyhow::Result;
+use rust_decimal::Decimal;
 
 #[async_trait]
 pub trait IGastoRepository: Send + Sync {
@@ -14,4 +15,5 @@ pub trait IGastoRepository: Send + Sync {
     async fn delete(&self, usuario_id: i64, id: i32) -> Result<Option<Gasto>>;
     async fn actualizar_soporte(&self, usuario_id: i64, id: i32, url: &str) -> Result<Option<Gasto>>;
     async fn update(&self, usuario_id: i64, id: i32, dto: CreateGastoDto) -> Result<Option<Gasto>>;
+    async fn get_total_monto(&self, usuario_id: i64) -> Result<Decimal>;
 }

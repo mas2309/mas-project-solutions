@@ -14,4 +14,5 @@ pub trait IPagoRepository: Send + Sync {
     async fn marcar_pagado(&self, usuario_id: i64, id: i32) -> Result<Option<PagoExistente>>;
     async fn delete(&self, usuario_id: i64, id: i32) -> Result<Option<PagoExistente>>;
     async fn update(&self, usuario_id: i64, id: i32, descripcion: &str, valor: Decimal, mes: &str, anio: &str) -> Result<Option<PagoExistente>>;
+    async fn get_totals_by_proyecto(&self, usuario_id: i64, proyecto_id: i32) -> Result<(Decimal, Decimal, i64, i64)>;
 }

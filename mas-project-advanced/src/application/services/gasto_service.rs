@@ -4,6 +4,7 @@ use crate::application::services::storage_service::IStorageService;
 use crate::domain::entities::Gasto;
 use crate::application::dto::CreateGastoDto;
 use anyhow::{Result, anyhow};
+use rust_decimal::Decimal;
 
 pub struct GastoService {
     repository: Arc<dyn IGastoRepository>,
@@ -22,6 +23,10 @@ impl GastoService {
 
     pub async fn listar_gastos(&self, usuario_id: i64, page: u32, page_size: u32) -> Result<(Vec<Gasto>, i64)> {
         self.repository.list_all(usuario_id, page, page_size).await
+    }
+
+    pub async fn obtener_total_monto(&self, usuario_id: i64) -> Result<Decimal> {
+        self.repository.get_total_monto(usuario_id).await
     }
 
     pub async fn marcar_pagado(&self, usuario_id: i64, id: i32) -> Result<Gasto> {

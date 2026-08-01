@@ -235,4 +235,32 @@ impl IPagoRepository for PagoRepository {
 
         Ok(row.map(Self::map_row_to_pago))
     }
+
+    /// Obtiene los totales globales de un proyecto (sin paginación)
+    /// Retorna: (total_valor, total_saldo, pagos_completados, total_pagos)
+    async fn get_totals_by_proyecto(&self, usuario_id: i64, proyecto_id: i32) -> Result<(Decimal, Decimal, i64, i64)> {
+        let row = sqlx::query_as::<_, (Option<BigDecimal>, Option<BigDecimal>, Option<i64>, Option<i64>)>(
+            r#"
+            SELECT 
+                COALESCE(SUM(p.valor), 0) as total_valor,
+                COALESCE(SUM(p.saldo), 0) as total_saldo,
+                COUNT(CASE WHEN p.estado = 'Pagado' THEN 1 END) as pagos_completados,
+                COUNT(*) as total_pagos
+            FROM personal.pagos p
+            INNER JOIN personal.proyectos pr ON pr.id = p.proyecto_id
+            WHERE p.proyecto_id = $1 AND pr.usuario_id = $2
+            "#
+        )
+        .bind(proyecto_id)
+        .bind(usuario_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let total_valor = Self::bigdecimal_to_decimal(row.0.unwrap_or(BigDecimal::from(0)));
+        let total_saldo = Self::bigdecimal_to_decimal(row.1.unwrap_or(BigDecimal::from(0)));
+        let pagos_completados = row.2.unwrap_or(0);
+        let total_pagos = row.3.unwrap_or(0);
+
+        Ok((total_valor, total_saldo, pagos_completados, total_pagos))
+    }
 }

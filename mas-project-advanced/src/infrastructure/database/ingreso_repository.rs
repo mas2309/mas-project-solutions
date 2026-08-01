@@ -144,4 +144,15 @@ impl IIngresoRepository for IngresoRepository {
 
         Ok(row.map(Self::map_row))
     }
+
+    async fn get_total_monto(&self, usuario_id: i64) -> Result<Decimal> {
+        let row: (Option<BigDecimal>,) = sqlx::query_as(
+            "SELECT COALESCE(SUM(monto), 0) FROM personal.ingresos WHERE usuario_id = $1"
+        )
+        .bind(usuario_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(Self::bd_to_decimal(row.0.unwrap_or(BigDecimal::from(0))))
+    }
 }

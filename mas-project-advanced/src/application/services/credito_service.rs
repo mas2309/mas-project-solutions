@@ -23,6 +23,10 @@ impl CreditoService {
         self.repository.list_all(usuario_id, page, page_size).await
     }
 
+    pub async fn obtener_deuda_total(&self, usuario_id: i64) -> Result<Decimal> {
+        self.repository.get_deuda_total(usuario_id).await
+    }
+
     pub async fn obtener_credito(&self, usuario_id: i64, id: i32) -> Result<Credito> {
         self.repository.find_by_id(usuario_id, id).await?
             .ok_or_else(|| anyhow!("Crédito no encontrado"))

@@ -109,6 +109,12 @@ impl PagoService {
             .ok_or_else(|| anyhow!("Error eliminando pago"))
     }
 
+    /// Obtiene los totales globales de pagos de un proyecto (sin paginación)
+    /// Retorna: (total_valor, total_saldo, pagos_completados, total_pagos)
+    pub async fn obtener_totales_proyecto(&self, usuario_id: i64, proyecto_id: i32) -> Result<(Decimal, Decimal, i64, i64)> {
+        self.repository.get_totals_by_proyecto(usuario_id, proyecto_id).await
+    }
+
     pub async fn editar_pago(&self, usuario_id: i64, id: i32, descripcion: &str, valor: Decimal, mes: &str, anio: &str) -> Result<PagoExistente> {
         self.repository.update(usuario_id, id, descripcion, valor, mes, anio).await?
             .ok_or_else(|| anyhow!("Pago no encontrado"))

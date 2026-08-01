@@ -159,17 +159,12 @@ pub async fn list_pagos_proyecto(
     let (proyecto, pagos, total_pagos) = state.proyecto_service.get_proyecto_with_pagos(user.id, id, pagination.page, page_size).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
-    // DEBUG: Imprimir estados
-    for pago in &pagos {
-        println!("Pago ID: {}, Estado: {:?}, Saldo: {:?}, Valor: {}", 
-            pago.id, pago.estado, pago.saldo, pago.valor);
-    }
+    // Obtener totales globales (de TODOS los pagos, no solo la página actual)
+    let (total_valor, total_saldo, pagos_completados, _) = state.pago_service.obtener_totales_proyecto(user.id, id).await
+        .unwrap_or((Decimal::ZERO, Decimal::ZERO, 0, 0));
 
-    let total_valor: Decimal = pagos.iter().map(|p| p.valor).sum();
-    let total_saldo_pagos: Decimal = pagos.iter().map(|p| p.saldo.unwrap_or_default()).sum();
-    let total_abonado = total_valor - total_saldo_pagos;
+    let total_abonado = total_valor - total_saldo;
     let saldo_pendiente_proyecto = proyecto.presupuesto.unwrap_or_default() - total_abonado;
-    let pagos_completados = pagos.iter().filter(|p| p.is_pagado_completo()).count();
     
     let total_paginas = (total_pagos as f64 / page_size as f64).ceil() as u32;
 
@@ -181,7 +176,7 @@ pub async fn list_pagos_proyecto(
         total_abonado,
         saldo_pendiente_proyecto,
         total_pagos: total_pagos as usize,
-        pagos_completados,
+        pagos_completados: pagos_completados as usize,
         current_page: pagination.page,
         total_pages: total_paginas,
     })
@@ -589,7 +584,8 @@ pub async fn list_ingresos(
     let (ingresos, total) = state.ingreso_service.listar_ingresos(user.id, pagination.page, page_size).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
-    let monto_total: Decimal = ingresos.iter().map(|i| i.monto).sum();
+    let monto_total: Decimal = state.ingreso_service.obtener_total_monto(user.id).await
+        .unwrap_or(Decimal::ZERO);
     let total_pages = (total as f64 / page_size as f64).ceil() as u32;
 
     Ok(IngresosListTemplate {
@@ -663,7 +659,8 @@ pub async fn list_gastos(
     let (gastos, total) = state.gasto_service.listar_gastos(user.id, pagination.page, page_size).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
-    let monto_total: Decimal = gastos.iter().map(|g| g.monto).sum();
+    let monto_total: Decimal = state.gasto_service.obtener_total_monto(user.id).await
+        .unwrap_or(Decimal::ZERO);
     let total_pages = (total as f64 / page_size as f64).ceil() as u32;
 
     Ok(GastosListTemplate {
@@ -1059,7 +1056,8 @@ pub async fn list_creditos(
     let (creditos, total) = state.credito_service.listar_creditos(user.id, pagination.page, page_size).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let deuda_total: Decimal = creditos.iter().map(|c| c.saldo_pendiente).sum();
+    let deuda_total: Decimal = state.credito_service.obtener_deuda_total(user.id).await
+        .unwrap_or(Decimal::ZERO);
     let total_pages = (total as f64 / page_size as f64).ceil() as u32;
 
     Ok(CreditosListTemplate {
