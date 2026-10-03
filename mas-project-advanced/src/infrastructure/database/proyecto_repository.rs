@@ -33,7 +33,7 @@ impl ProyectoRepository {
             r#"
             INSERT INTO personal.proyectos (nombre, descripcion, presupuesto, costo_actual, estado, fecha_fin_estimada, cliente, responsable, fecha_creacion, usuario_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
+            RETURNING id, nombre, descripcion, presupuesto, COALESCE((SELECT SUM(pg.valor) - COALESCE(SUM(pg.saldo), 0) FROM personal.pagos pg WHERE pg.proyecto_id = proyectos.id), 0) AS costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
             "#
         )
         .bind(&dto.nombre)
@@ -80,7 +80,7 @@ impl ProyectoRepository {
                 responsable = COALESCE($7, responsable),
                 fecha_actualizacion = $8
             WHERE id = $1 AND usuario_id = $9
-            RETURNING id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
+            RETURNING id, nombre, descripcion, presupuesto, COALESCE((SELECT SUM(pg.valor) - COALESCE(SUM(pg.saldo), 0) FROM personal.pagos pg WHERE pg.proyecto_id = proyectos.id), 0) AS costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
             "#
         )
         .bind(id)
@@ -123,7 +123,7 @@ impl ProyectoRepository {
                 fecha_fin_real = CASE WHEN $2 = 'Completado' THEN $3 ELSE fecha_fin_real END,
                 fecha_actualizacion = $3
             WHERE id = $1 AND usuario_id = $4
-            RETURNING id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
+            RETURNING id, nombre, descripcion, presupuesto, COALESCE((SELECT SUM(pg.valor) - COALESCE(SUM(pg.saldo), 0) FROM personal.pagos pg WHERE pg.proyecto_id = proyectos.id), 0) AS costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion
             "#
         )
         .bind(id)
@@ -155,7 +155,7 @@ impl ProyectoRepository {
 impl IProyectoRepository for ProyectoRepository {
     async fn list_all(&self, usuario_id: i64) -> Result<Vec<Proyecto>> {
         let rows = sqlx::query_as::<_, (i32, String, Option<String>, Option<BigDecimal>, Option<BigDecimal>, String, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
-            "SELECT id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion FROM personal.proyectos WHERE usuario_id = $1 ORDER BY fecha_creacion DESC"
+            "SELECT id, nombre, descripcion, presupuesto, COALESCE((SELECT SUM(pg.valor) - COALESCE(SUM(pg.saldo), 0) FROM personal.pagos pg WHERE pg.proyecto_id = proyectos.id), 0) AS costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion FROM personal.proyectos WHERE usuario_id = $1 ORDER BY fecha_creacion DESC"
         )
         .bind(usuario_id)
         .fetch_all(&self.pool)
@@ -181,15 +181,22 @@ impl IProyectoRepository for ProyectoRepository {
     async fn get_summary(&self, usuario_id: i64) -> Result<ProyectoSummaryDto> {
         let row = sqlx::query_as::<_, (Option<i64>, Option<i64>, Option<i64>, Option<BigDecimal>, Option<BigDecimal>, Option<i64>)>(
             r#"
-            SELECT 
+            WITH proyectos_costo AS (
+                SELECT
+                    estado,
+                    presupuesto,
+                    COALESCE((SELECT SUM(pg.valor) - COALESCE(SUM(pg.saldo), 0) FROM personal.pagos pg WHERE pg.proyecto_id = proyectos.id), 0) AS costo_actual
+                FROM personal.proyectos
+                WHERE usuario_id = $1
+            )
+            SELECT
                 COUNT(*) as total_proyectos,
                 COUNT(CASE WHEN estado IN ('Planificacion', 'En_Progreso') THEN 1 END) as proyectos_activos,
                 COUNT(CASE WHEN estado = 'Completado' THEN 1 END) as proyectos_completados,
                 COALESCE(SUM(presupuesto), 0) as presupuesto_total,
                 COALESCE(SUM(costo_actual), 0) as costo_total,
                 COUNT(CASE WHEN costo_actual > presupuesto THEN 1 END) as proyectos_sobre_presupuesto
-            FROM personal.proyectos
-            WHERE usuario_id = $1
+            FROM proyectos_costo
             "#
         )
         .bind(usuario_id)
@@ -208,7 +215,7 @@ impl IProyectoRepository for ProyectoRepository {
 
     async fn find_by_id(&self, usuario_id: i64, id: i32) -> Result<Option<Proyecto>> {
         let row = sqlx::query_as::<_, (i32, String, Option<String>, Option<BigDecimal>, Option<BigDecimal>, String, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<chrono::NaiveDateTime>, Option<String>, Option<String>, chrono::NaiveDateTime, Option<chrono::NaiveDateTime>)>(
-            "SELECT id, nombre, descripcion, presupuesto, costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion FROM personal.proyectos WHERE id = $1 AND usuario_id = $2"
+            "SELECT id, nombre, descripcion, presupuesto, COALESCE((SELECT SUM(pg.valor) - COALESCE(SUM(pg.saldo), 0) FROM personal.pagos pg WHERE pg.proyecto_id = proyectos.id), 0) AS costo_actual, estado, fecha_inicio, fecha_fin_estimada, fecha_fin_real, cliente, responsable, fecha_creacion, fecha_actualizacion FROM personal.proyectos WHERE id = $1 AND usuario_id = $2"
         )
         .bind(id)
         .bind(usuario_id)
