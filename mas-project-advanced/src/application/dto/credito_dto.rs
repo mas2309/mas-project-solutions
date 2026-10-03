@@ -12,4 +12,7 @@ pub struct CreateCreditoDto {
     pub valor_cuota: Decimal,
     pub fecha_inicio: String,
     pub fecha_fin_estimada: Option<String>,
+    /// Día del mes en que se paga la cuota. Si no se envía, se usa el día de `fecha_inicio`.
+    #[serde(default)]
+    pub dia_pago: Option<i32>,
 }

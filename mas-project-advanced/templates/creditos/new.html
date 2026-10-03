@@ -79,6 +79,12 @@
                         <input type="date" id="fecha_fin_estimada" name="fecha_fin_estimada"
                             class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
                     </div>
+                    <div>
+                        <label for="dia_pago" class="block text-sm font-medium text-gray-700 mb-1">Día de Pago</label>
+                        <input type="number" id="dia_pago" name="dia_pago" min="1" max="31" placeholder="Ej: 15"
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                        <p class="text-xs text-gray-400 mt-1">Día del mes en que se genera la cuota en Gastos. Si lo dejas vacío se usa el día de la fecha de inicio.</p>
+                    </div>
                 </div>
             </div>
 

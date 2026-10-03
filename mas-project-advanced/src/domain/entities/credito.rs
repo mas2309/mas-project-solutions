@@ -70,6 +70,7 @@ pub struct Credito {
     pub estado: EstadoCredito,
     pub fecha_inicio: String,
     pub fecha_fin_estimada: Option<String>,
+    pub dia_pago: i32,
     pub fecha_creacion: String,
 }
 

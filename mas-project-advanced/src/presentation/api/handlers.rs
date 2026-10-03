@@ -155,6 +155,8 @@ pub async fn api_list_gastos(
     user: AuthUser,
     Query(pagination): Query<PaginationQuery>,
 ) -> Result<Json<ApiResponse<PaginatedResponse<Gasto>>>, StatusCode> {
+    let _ = state.credito_service.auto_generar_cuotas(user.id).await;
+
     let (gastos, total) = state.gasto_service.listar_gastos(user.id, pagination.page, pagination.page_size).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

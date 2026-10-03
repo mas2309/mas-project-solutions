@@ -13,6 +13,8 @@ pub struct CreditoRepository {
     pool: PgPool,
 }
 
+type CreditoRow = (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, i32, chrono::NaiveDateTime);
+
 impl CreditoRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -22,7 +24,7 @@ impl CreditoRepository {
         Decimal::from_str(&bd.to_string()).unwrap_or(Decimal::ZERO)
     }
 
-    fn map_row(r: (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)) -> Credito {
+    fn map_row(r: CreditoRow) -> Credito {
         Credito {
             id: r.0,
             entidad: r.1,
@@ -37,12 +39,13 @@ impl CreditoRepository {
             estado: r.10.into(),
             fecha_inicio: r.11.to_string(),
             fecha_fin_estimada: r.12.map(|d| d.to_string()),
-            fecha_creacion: r.13.to_string(),
+            dia_pago: r.13,
+            fecha_creacion: r.14.to_string(),
         }
     }
 }
 
-const SELECT_FIELDS: &str = "id, entidad, descripcion, monto_total, saldo_pendiente, tasa_interes, tipo_tasa, cuotas_totales, cuotas_pagadas, valor_cuota, estado, fecha_inicio, fecha_fin_estimada, fecha_creacion";
+const SELECT_FIELDS: &str = "id, entidad, descripcion, monto_total, saldo_pendiente, tasa_interes, tipo_tasa, cuotas_totales, cuotas_pagadas, valor_cuota, estado, fecha_inicio, fecha_fin_estimada, dia_pago, fecha_creacion";
 
 #[async_trait]
 impl ICreditoRepository for CreditoRepository {
@@ -51,8 +54,8 @@ impl ICreditoRepository for CreditoRepository {
         let fecha_inicio = chrono::NaiveDate::parse_from_str(&dto.fecha_inicio, "%Y-%m-%d")?;
         let fecha_fin = dto.fecha_fin_estimada.as_ref().and_then(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok());
 
-        let row = sqlx::query_as::<_, (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)>(
-            &format!("INSERT INTO personal.creditos (usuario_id, entidad, descripcion, monto_total, saldo_pendiente, tasa_interes, tipo_tasa, cuotas_totales, cuotas_pagadas, valor_cuota, estado, fecha_inicio, fecha_fin_estimada, fecha_creacion) VALUES ($1,$2,$3,$4,$4,$5,$6,$7,0,$8,'Activo',$9,$10,$11) RETURNING {}", SELECT_FIELDS)
+        let row = sqlx::query_as::<_, CreditoRow>(
+            &format!("INSERT INTO personal.creditos (usuario_id, entidad, descripcion, monto_total, saldo_pendiente, tasa_interes, tipo_tasa, cuotas_totales, cuotas_pagadas, valor_cuota, estado, fecha_inicio, fecha_fin_estimada, fecha_creacion, dia_pago) VALUES ($1,$2,$3,$4,$4,$5,$6,$7,0,$8,'Activo',$9,$10,$11,$12) RETURNING {}", SELECT_FIELDS)
         )
         .bind(usuario_id)
         .bind(&dto.entidad)
@@ -65,6 +68,7 @@ impl ICreditoRepository for CreditoRepository {
         .bind(fecha_inicio)
         .bind(fecha_fin)
         .bind(now)
+        .bind(dto.dia_pago.unwrap_or(1))
         .fetch_one(&self.pool)
         .await?;
 
@@ -72,7 +76,7 @@ impl ICreditoRepository for CreditoRepository {
     }
 
     async fn find_by_id(&self, usuario_id: i64, id: i32) -> Result<Option<Credito>> {
-        let row = sqlx::query_as::<_, (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)>(
+        let row = sqlx::query_as::<_, CreditoRow>(
             &format!("SELECT {} FROM personal.creditos WHERE id = $1 AND usuario_id = $2", SELECT_FIELDS)
         )
         .bind(id)
@@ -86,7 +90,7 @@ impl ICreditoRepository for CreditoRepository {
     async fn list_all(&self, usuario_id: i64, page: u32, page_size: u32) -> Result<(Vec<Credito>, i64)> {
         let offset = (page - 1) * page_size;
 
-        let rows = sqlx::query_as::<_, (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)>(
+        let rows = sqlx::query_as::<_, CreditoRow>(
             &format!("SELECT {} FROM personal.creditos WHERE usuario_id = $1 ORDER BY fecha_creacion DESC LIMIT $2 OFFSET $3", SELECT_FIELDS)
         )
         .bind(usuario_id)
@@ -102,10 +106,21 @@ impl ICreditoRepository for CreditoRepository {
         Ok((rows.into_iter().map(Self::map_row).collect(), count.0))
     }
 
+    async fn list_activos(&self, usuario_id: i64) -> Result<Vec<Credito>> {
+        let rows = sqlx::query_as::<_, CreditoRow>(
+            &format!("SELECT {} FROM personal.creditos WHERE usuario_id = $1 AND estado <> 'Pagado' AND cuotas_pagadas < cuotas_totales ORDER BY id", SELECT_FIELDS)
+        )
+        .bind(usuario_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(Self::map_row).collect())
+    }
+
     async fn registrar_cuota(&self, usuario_id: i64, id: i32) -> Result<Option<Credito>> {
-        let row = sqlx::query_as::<_, (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)>(
+        let row = sqlx::query_as::<_, CreditoRow>(
             &format!(r#"
-            UPDATE personal.creditos 
+            UPDATE personal.creditos
             SET cuotas_pagadas = cuotas_pagadas + 1,
                 saldo_pendiente = GREATEST(0, saldo_pendiente - valor_cuota),
                 estado = CASE WHEN cuotas_pagadas + 1 >= cuotas_totales THEN 'Pagado' ELSE estado END
@@ -121,7 +136,7 @@ impl ICreditoRepository for CreditoRepository {
     }
 
     async fn finalizar(&self, usuario_id: i64, id: i32) -> Result<Option<Credito>> {
-        let row = sqlx::query_as::<_, (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)>(
+        let row = sqlx::query_as::<_, CreditoRow>(
             &format!("UPDATE personal.creditos SET estado = 'Pagado', saldo_pendiente = 0 WHERE id = $1 AND usuario_id = $2 RETURNING {}", SELECT_FIELDS)
         )
         .bind(id)
@@ -133,7 +148,7 @@ impl ICreditoRepository for CreditoRepository {
     }
 
     async fn delete(&self, usuario_id: i64, id: i32) -> Result<Option<Credito>> {
-        let row = sqlx::query_as::<_, (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)>(
+        let row = sqlx::query_as::<_, CreditoRow>(
             &format!("DELETE FROM personal.creditos WHERE id = $1 AND usuario_id = $2 RETURNING {}", SELECT_FIELDS)
         )
         .bind(id)
@@ -148,8 +163,8 @@ impl ICreditoRepository for CreditoRepository {
         let fecha_inicio = chrono::NaiveDate::parse_from_str(&dto.fecha_inicio, "%Y-%m-%d")?;
         let fecha_fin = dto.fecha_fin_estimada.as_ref().and_then(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok());
 
-        let row = sqlx::query_as::<_, (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)>(
-            &format!("UPDATE personal.creditos SET entidad=$3, descripcion=$4, monto_total=$5, tasa_interes=$6, tipo_tasa=$7, cuotas_totales=$8, valor_cuota=$9, fecha_inicio=$10, fecha_fin_estimada=$11 WHERE id=$1 AND usuario_id=$2 RETURNING {}", SELECT_FIELDS)
+        let row = sqlx::query_as::<_, CreditoRow>(
+            &format!("UPDATE personal.creditos SET entidad=$3, descripcion=$4, monto_total=$5, tasa_interes=$6, tipo_tasa=$7, cuotas_totales=$8, valor_cuota=$9, fecha_inicio=$10, fecha_fin_estimada=$11, dia_pago=$12 WHERE id=$1 AND usuario_id=$2 RETURNING {}", SELECT_FIELDS)
         )
         .bind(id)
         .bind(usuario_id)
@@ -162,6 +177,7 @@ impl ICreditoRepository for CreditoRepository {
         .bind(dto.valor_cuota.to_string().parse::<BigDecimal>().unwrap())
         .bind(fecha_inicio)
         .bind(fecha_fin)
+        .bind(dto.dia_pago.unwrap_or(1))
         .fetch_optional(&self.pool)
         .await?;
 

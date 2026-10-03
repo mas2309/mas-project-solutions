@@ -37,8 +37,8 @@ pub async fn start_web_server(config: &AppConfig) -> Result<()> {
     let proyecto_service = Arc::new(ProyectoService::new(proyecto_repo.clone()));
     let pago_service = Arc::new(PagoService::new(pago_repo, proyecto_repo, storage_service.clone(), config.storage.bucket_proyectos.clone()));
     let ingreso_service = Arc::new(IngresoService::new(ingreso_repo));
-    let gasto_service = Arc::new(GastoService::new(gasto_repo.clone(), storage_service.clone(), config.storage.bucket_gastos.clone()));
-    let credito_service = Arc::new(CreditoService::new(credito_repo));
+    let gasto_service = Arc::new(GastoService::new(gasto_repo.clone(), credito_repo.clone(), storage_service.clone(), config.storage.bucket_gastos.clone()));
+    let credito_service = Arc::new(CreditoService::new(credito_repo, gasto_repo.clone()));
     let documento_service = Arc::new(DocumentoService::new(documento_repo, storage_service, config.storage.bucket_documentos.clone()));
     let gasto_recurrente_service = Arc::new(GastoRecurrenteService::new(gasto_recurrente_repo, gasto_repo));
     let auth_service = Arc::new(AuthService::new(usuario_repo));
