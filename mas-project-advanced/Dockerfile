@@ -27,9 +27,10 @@ RUN apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/
 # Copy binary from build stage
 COPY --from=build /app/target/release/mas-project-advanced .
 
-# Copy templates and migrations for runtime
+# Copy templates, migrations and static assets (PWA) for runtime
 COPY templates/ templates/
 COPY migrations/ migrations/
+COPY static/ static/
 
 EXPOSE 8080
 
