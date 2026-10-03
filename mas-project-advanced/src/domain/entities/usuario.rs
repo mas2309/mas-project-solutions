@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Usuario {
-    pub id: i32,
+    pub id: i64,
     pub username: String,
     pub email: String,
     pub nombre_completo: String,

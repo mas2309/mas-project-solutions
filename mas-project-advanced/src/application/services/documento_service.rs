@@ -16,28 +16,28 @@ impl DocumentoService {
         Self { repository, storage_service, bucket }
     }
 
-    pub async fn crear_documento(&self, dto: CreateDocumentoDto, file_data: Vec<u8>, file_name: &str) -> Result<Documento> {
+    pub async fn crear_documento(&self, usuario_id: i64, dto: CreateDocumentoDto, file_data: Vec<u8>, file_name: &str) -> Result<Documento> {
         let extension = file_name.split('.').last().unwrap_or("bin");
         let clean_name = slug::slugify(&dto.nombre);
         let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
         let storage_name = format!("documentos/{}-{}.{}", clean_name, timestamp, extension);
         let file_url = self.storage_service.upload_file(file_data, &storage_name, &self.bucket).await?;
-        self.repository.create(dto, &file_url, file_name).await
+        self.repository.create(usuario_id, dto, &file_url, file_name).await
     }
 
-    pub async fn listar_documentos(&self, page: u32, page_size: u32) -> Result<(Vec<Documento>, i64)> {
-        self.repository.list_all(page, page_size).await
+    pub async fn listar_documentos(&self, usuario_id: i64, page: u32, page_size: u32) -> Result<(Vec<Documento>, i64)> {
+        self.repository.list_all(usuario_id, page, page_size).await
     }
 
-    pub async fn eliminar_documento(&self, id: i32) -> Result<Documento> {
-        let doc = self.repository.find_by_id(id).await?
+    pub async fn eliminar_documento(&self, usuario_id: i64, id: i32) -> Result<Documento> {
+        let doc = self.repository.find_by_id(usuario_id, id).await?
             .ok_or_else(|| anyhow!("Documento no encontrado"))?;
 
         if let Err(e) = self.storage_service.delete_file(&doc.archivo_url).await {
             println!("⚠️ Error eliminando archivo: {}", e);
         }
 
-        self.repository.delete(id).await?
+        self.repository.delete(usuario_id, id).await?
             .ok_or_else(|| anyhow!("Error eliminando documento"))
     }
 }

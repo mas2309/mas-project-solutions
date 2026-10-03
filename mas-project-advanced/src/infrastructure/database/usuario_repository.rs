@@ -16,7 +16,7 @@ impl UsuarioRepository {
     pub async fn create(&self, dto: CreateUsuarioDto) -> Result<Usuario> {
         let now = Utc::now().naive_utc();
         
-        let row = sqlx::query_as::<_, (i32, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
+        let row = sqlx::query_as::<_, (i64, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
             r#"
             INSERT INTO personal.usuarios (username, email, nombre_completo, password, rol, activo, fecha_creacion, failed_login_attempts)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -51,8 +51,8 @@ impl UsuarioRepository {
         })
     }
 
-    pub async fn find_by_id(&self, id: i32) -> Result<Option<Usuario>> {
-        let row = sqlx::query_as::<_, (i32, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
+    pub async fn find_by_id(&self, id: i64) -> Result<Option<Usuario>> {
+        let row = sqlx::query_as::<_, (i64, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
             "SELECT id, username, email, nombre_completo, password, rol, activo, fecha_creacion, fecha_actualizacion, ultimo_acceso, failed_login_attempts, lockout_end_time FROM personal.usuarios WHERE id = $1"
         )
         .bind(id)
@@ -76,7 +76,7 @@ impl UsuarioRepository {
     }
 
     pub async fn find_by_username(&self, username: &str) -> Result<Option<Usuario>> {
-        let row = sqlx::query_as::<_, (i32, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
+        let row = sqlx::query_as::<_, (i64, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
             "SELECT id, username, email, nombre_completo, password, rol, activo, fecha_creacion, fecha_actualizacion, ultimo_acceso, failed_login_attempts, lockout_end_time FROM personal.usuarios WHERE username = $1"
         )
         .bind(username)
@@ -99,10 +99,10 @@ impl UsuarioRepository {
         }))
     }
 
-    pub async fn update(&self, id: i32, dto: UpdateUsuarioDto) -> Result<Option<Usuario>> {
+    pub async fn update(&self, id: i64, dto: UpdateUsuarioDto) -> Result<Option<Usuario>> {
         let now = Utc::now().naive_utc();
         
-        let row = sqlx::query_as::<_, (i32, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
+        let row = sqlx::query_as::<_, (i64, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
             r#"
             UPDATE personal.usuarios 
             SET username = COALESCE($2, username),
@@ -143,7 +143,7 @@ impl UsuarioRepository {
     }
 
     pub async fn list_all(&self) -> Result<Vec<Usuario>> {
-        let rows = sqlx::query_as::<_, (i32, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
+        let rows = sqlx::query_as::<_, (i64, String, String, String, String, String, bool, NaiveDateTime, Option<NaiveDateTime>, Option<NaiveDateTime>, i32, Option<NaiveDateTime>)>(
             "SELECT id, username, email, nombre_completo, password, rol, activo, fecha_creacion, fecha_actualizacion, ultimo_acceso, failed_login_attempts, lockout_end_time FROM personal.usuarios ORDER BY fecha_creacion DESC"
         )
         .fetch_all(&self.pool)

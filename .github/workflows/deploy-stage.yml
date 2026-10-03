@@ -75,6 +75,9 @@ jobs:
               -e DB_USER="${{ secrets.DB_USER }}" \
               -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
               -e DB_SCHEMA="${{ secrets.DB_SCHEMA }}" \
+              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              -e JWT_EXPIRATION_HOURS="${{ secrets.JWT_EXPIRATION_HOURS }}" \
+              -e ADMIN_DEFAULT_PASSWORD="${{ secrets.ADMIN_DEFAULT_PASSWORD }}" \
               -e STORAGE_ENDPOINT="${{ secrets.STORAGE_ENDPOINT }}" \
               -e STORAGE_TENANT_ID="${{ secrets.STORAGE_TENANT_ID }}" \
               -e CONTABO_ACCESS_KEY="${{ secrets.CONTABO_ACCESS_KEY }}" \

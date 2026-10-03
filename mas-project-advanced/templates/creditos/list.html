@@ -116,4 +116,29 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Paginación -->
+{% if total_pages > 1 %}
+<div class="mt-6 flex items-center justify-between">
+    <p class="text-sm text-gray-500">
+        Página {{ current_page }} de {{ total_pages }}
+    </p>
+    <div class="flex items-center space-x-2">
+        {% if current_page > 1 %}
+        <a href="/creditos?page={{ current_page - 1 }}" 
+           class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Anterior
+        </a>
+        {% endif %}
+        {% if current_page < total_pages %}
+        <a href="/creditos?page={{ current_page + 1 }}" 
+           class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            Siguiente
+            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}

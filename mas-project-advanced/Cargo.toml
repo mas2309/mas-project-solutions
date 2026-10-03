@@ -40,5 +40,11 @@ async-trait = "0.1"
 # S3-compatible Object Storage (Contabo)
 aws-sdk-s3 = "1.13"
 
+# Authentication & Security
+bcrypt = "0.15"
+jsonwebtoken = "9"
+cookie = "0.18"
+tower-cookies = "0.10"
+
 [dev-dependencies]
 tokio-test = "0.4"
