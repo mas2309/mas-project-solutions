@@ -79,7 +79,9 @@ impl Credito {
     }
 
     pub fn porcentaje_pagado(&self) -> f64 {
-        if self.cuotas_totales > 0 {
+        if self.estado == EstadoCredito::Pagado {
+            100.0
+        } else if self.cuotas_totales > 0 {
             (self.cuotas_pagadas as f64 / self.cuotas_totales as f64) * 100.0
         } else {
             0.0

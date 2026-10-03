@@ -296,6 +296,17 @@ pub async fn api_registrar_cuota(
     }
 }
 
+pub async fn api_finalizar_credito(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<Json<ApiResponse<Credito>>, StatusCode> {
+    match state.credito_service.finalizar_credito(user.id, id).await {
+        Ok(credito) => Ok(ApiResponse::ok(credito)),
+        Err(e) => Ok(ApiResponse::error(&e.to_string())),
+    }
+}
+
 // === DOCUMENTOS ===
 
 pub async fn api_list_documentos(

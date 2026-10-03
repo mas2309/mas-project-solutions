@@ -120,6 +120,18 @@ impl ICreditoRepository for CreditoRepository {
         Ok(row.map(Self::map_row))
     }
 
+    async fn finalizar(&self, usuario_id: i64, id: i32) -> Result<Option<Credito>> {
+        let row = sqlx::query_as::<_, (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)>(
+            &format!("UPDATE personal.creditos SET estado = 'Pagado', saldo_pendiente = 0 WHERE id = $1 AND usuario_id = $2 RETURNING {}", SELECT_FIELDS)
+        )
+        .bind(id)
+        .bind(usuario_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(Self::map_row))
+    }
+
     async fn delete(&self, usuario_id: i64, id: i32) -> Result<Option<Credito>> {
         let row = sqlx::query_as::<_, (i32, String, String, BigDecimal, BigDecimal, BigDecimal, String, i32, i32, BigDecimal, String, chrono::NaiveDate, Option<chrono::NaiveDate>, chrono::NaiveDateTime)>(
             &format!("DELETE FROM personal.creditos WHERE id = $1 AND usuario_id = $2 RETURNING {}", SELECT_FIELDS)

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::application::repositories::credito_repository::ICreditoRepository;
-use crate::domain::entities::Credito;
+use crate::domain::entities::{Credito, EstadoCredito};
 use crate::application::dto::CreateCreditoDto;
 use anyhow::{Result, anyhow};
 use rust_decimal::Decimal;
@@ -33,7 +33,21 @@ impl CreditoService {
     }
 
     pub async fn registrar_cuota(&self, usuario_id: i64, id: i32) -> Result<Credito> {
+        let credito = self.obtener_credito(usuario_id, id).await?;
+        if credito.estado == EstadoCredito::Pagado {
+            return Err(anyhow!("El crédito ya está pagado"));
+        }
         self.repository.registrar_cuota(usuario_id, id).await?
+            .ok_or_else(|| anyhow!("Crédito no encontrado"))
+    }
+
+    /// Da por finalizado (cancelado) un crédito: queda en estado Pagado y sin saldo pendiente
+    pub async fn finalizar_credito(&self, usuario_id: i64, id: i32) -> Result<Credito> {
+        let credito = self.obtener_credito(usuario_id, id).await?;
+        if credito.estado == EstadoCredito::Pagado {
+            return Err(anyhow!("El crédito ya está finalizado"));
+        }
+        self.repository.finalizar(usuario_id, id).await?
             .ok_or_else(|| anyhow!("Crédito no encontrado"))
     }
 

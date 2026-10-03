@@ -1157,6 +1157,16 @@ pub async fn update_credito(
     Ok(Redirect::to("/creditos"))
 }
 
+pub async fn finalizar_credito(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<Redirect, StatusCode> {
+    state.credito_service.finalizar_credito(user.id, id).await
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    Ok(Redirect::to("/creditos"))
+}
+
 pub async fn eliminar_credito(
     State(state): State<AppState>,
     user: AuthUser,

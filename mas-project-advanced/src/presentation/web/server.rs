@@ -102,6 +102,7 @@ pub fn create_app(state: AppState) -> Router {
         .route("/creditos/:id/cuota", post(registrar_cuota_credito))
         .route("/creditos/:id/editar", get(edit_credito_form))
         .route("/creditos/:id/editar", post(update_credito))
+        .route("/creditos/:id/finalizar", post(finalizar_credito))
         .route("/creditos/:id/eliminar", post(eliminar_credito))
         // Documentos
         .route("/documentos", get(list_documentos))
