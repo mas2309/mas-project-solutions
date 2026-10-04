@@ -19,7 +19,7 @@ use crate::application::services::auth_service::AuthService;
 
 use super::handlers::*;
 use super::auth_handlers::*;
-use crate::presentation::api::routes::api_routes;
+use crate::presentation::api::routes::{api_routes, api_public_routes};
 use crate::presentation::middleware::{auth_guard, admin_guard};
 
 #[derive(Clone)]
@@ -110,9 +110,10 @@ pub fn create_app(state: AppState) -> Router {
         .route("/documentos/:id/eliminar", post(eliminar_documento))
         .route_layer(from_fn_with_state(state.clone(), auth_guard));
 
-    // API REST protegida
+    // API REST: rutas protegidas + públicas (login). route_layer solo aplica a las rutas previas al merge.
     let api = api_routes()
-        .route_layer(from_fn_with_state(state.clone(), auth_guard));
+        .route_layer(from_fn_with_state(state.clone(), auth_guard))
+        .merge(api_public_routes());
 
     Router::new()
         .merge(public_routes)

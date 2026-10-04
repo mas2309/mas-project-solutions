@@ -67,6 +67,27 @@ impl ContaboStorageService {
     }
 }
 
+/// Content-Type según la extensión. Sin él, el storage guarda `application/octet-stream`
+/// y el navegador descarga el archivo en vez de mostrarlo (PDF, imágenes).
+fn content_type_for(file_name: &str) -> &'static str {
+    let ext = file_name.rsplit('.').next().unwrap_or("").to_lowercase();
+    match ext.as_str() {
+        "pdf" => "application/pdf",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "heic" => "image/heic",
+        "txt" => "text/plain; charset=utf-8",
+        "csv" => "text/csv; charset=utf-8",
+        "doc" => "application/msword",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "xls" => "application/vnd.ms-excel",
+        "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        _ => "application/octet-stream",
+    }
+}
+
 #[async_trait]
 impl IStorageService for ContaboStorageService {
     async fn upload_file(&self, file_data: Vec<u8>, file_name: &str, bucket: &str) -> Result<String> {
@@ -78,6 +99,7 @@ impl IStorageService for ContaboStorageService {
             .put_object()
             .bucket(bucket)
             .key(file_name)
+            .content_type(content_type_for(file_name))
             .body(body)
             .send()
             .await
