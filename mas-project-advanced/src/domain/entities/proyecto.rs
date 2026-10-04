@@ -95,7 +95,7 @@ impl Proyecto {
     pub fn porcentaje_presupuesto_usado(&self) -> f64 {
         if let (Some(presupuesto), Some(costo)) = (&self.presupuesto, &self.costo_actual) {
             if *presupuesto > Decimal::ZERO {
-                (*costo / *presupuesto * Decimal::from(100)).try_into().unwrap_or(0.0)
+                (*costo / *presupuesto * Decimal::from(100)).round_dp(1).try_into().unwrap_or(0.0)
             } else {
                 0.0
             }

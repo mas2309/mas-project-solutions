@@ -36,6 +36,7 @@ pub fn api_routes() -> Router<AppState> {
         .route("/creditos/:id", put(handlers::api_update_credito))
         .route("/creditos/:id", delete(handlers::api_delete_credito))
         .route("/creditos/:id/cuota", post(handlers::api_registrar_cuota))
+        .route("/creditos/:id/finalizar", post(handlers::api_finalizar_credito))
         // Documentos
         .route("/documentos", get(handlers::api_list_documentos))
         .route("/documentos", post(handlers::api_create_documento))
