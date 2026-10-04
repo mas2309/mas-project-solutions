@@ -155,6 +155,8 @@ pub async fn api_list_gastos(
     user: AuthUser,
     Query(pagination): Query<PaginationQuery>,
 ) -> Result<Json<ApiResponse<PaginatedResponse<Gasto>>>, StatusCode> {
+    let _ = state.credito_service.auto_generar_cuotas(user.id).await;
+
     let (gastos, total) = state.gasto_service.listar_gastos(user.id, pagination.page, pagination.page_size).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -291,6 +293,17 @@ pub async fn api_registrar_cuota(
     Path(id): Path<i32>,
 ) -> Result<Json<ApiResponse<Credito>>, StatusCode> {
     match state.credito_service.registrar_cuota(user.id, id).await {
+        Ok(credito) => Ok(ApiResponse::ok(credito)),
+        Err(e) => Ok(ApiResponse::error(&e.to_string())),
+    }
+}
+
+pub async fn api_finalizar_credito(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<Json<ApiResponse<Credito>>, StatusCode> {
+    match state.credito_service.finalizar_credito(user.id, id).await {
         Ok(credito) => Ok(ApiResponse::ok(credito)),
         Err(e) => Ok(ApiResponse::error(&e.to_string())),
     }

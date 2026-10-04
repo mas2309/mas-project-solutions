@@ -4,7 +4,7 @@ use axum::{
     middleware::from_fn_with_state,
     extract::DefaultBodyLimit,
 };
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::cors::{CorsLayer, Any};
 use tower_cookies::CookieManagerLayer;
 use std::sync::Arc;
@@ -102,6 +102,7 @@ pub fn create_app(state: AppState) -> Router {
         .route("/creditos/:id/cuota", post(registrar_cuota_credito))
         .route("/creditos/:id/editar", get(edit_credito_form))
         .route("/creditos/:id/editar", post(update_credito))
+        .route("/creditos/:id/finalizar", post(finalizar_credito))
         .route("/creditos/:id/eliminar", post(eliminar_credito))
         // Documentos
         .route("/documentos", get(list_documentos))
@@ -120,6 +121,8 @@ pub fn create_app(state: AppState) -> Router {
         .merge(protected_routes)
         .nest("/api/v1", api)
         .nest_service("/static", ServeDir::new("static"))
+        // El service worker debe servirse desde la raíz para controlar toda la app (PWA)
+        .route_service("/sw.js", ServeFile::new("static/sw.js"))
         .layer(CorsLayer::new()
             .allow_origin(Any)
             .allow_methods(Any)

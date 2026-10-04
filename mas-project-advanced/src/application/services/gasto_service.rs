@@ -1,20 +1,22 @@
 use std::sync::Arc;
 use crate::application::repositories::gasto_repository::IGastoRepository;
+use crate::application::repositories::credito_repository::ICreditoRepository;
 use crate::application::services::storage_service::IStorageService;
-use crate::domain::entities::Gasto;
+use crate::domain::entities::{Gasto, EstadoGasto, EstadoCredito};
 use crate::application::dto::CreateGastoDto;
 use anyhow::{Result, anyhow};
 use rust_decimal::Decimal;
 
 pub struct GastoService {
     repository: Arc<dyn IGastoRepository>,
+    credito_repository: Arc<dyn ICreditoRepository>,
     storage_service: Arc<dyn IStorageService>,
     bucket: String,
 }
 
 impl GastoService {
-    pub fn new(repository: Arc<dyn IGastoRepository>, storage_service: Arc<dyn IStorageService>, bucket: String) -> Self {
-        Self { repository, storage_service, bucket }
+    pub fn new(repository: Arc<dyn IGastoRepository>, credito_repository: Arc<dyn ICreditoRepository>, storage_service: Arc<dyn IStorageService>, bucket: String) -> Self {
+        Self { repository, credito_repository, storage_service, bucket }
     }
 
     pub async fn crear_gasto(&self, usuario_id: i64, dto: CreateGastoDto) -> Result<Gasto> {
@@ -29,9 +31,25 @@ impl GastoService {
         self.repository.get_total_monto(usuario_id).await
     }
 
+    /// Marca el gasto como pagado. Si es la cuota de un crédito, registra la cuota en el crédito.
     pub async fn marcar_pagado(&self, usuario_id: i64, id: i32) -> Result<Gasto> {
-        self.repository.marcar_pagado(usuario_id, id).await?
-            .ok_or_else(|| anyhow!("Gasto no encontrado"))
+        let gasto = self.obtener_gasto(usuario_id, id).await?;
+        if gasto.estado == EstadoGasto::Pagado {
+            return Ok(gasto);
+        }
+
+        let gasto = self.repository.marcar_pagado(usuario_id, id).await?
+            .ok_or_else(|| anyhow!("Gasto no encontrado"))?;
+
+        if let Some(credito_id) = gasto.credito_id {
+            if let Some(credito) = self.credito_repository.find_by_id(usuario_id, credito_id).await? {
+                if credito.estado != EstadoCredito::Pagado {
+                    self.credito_repository.registrar_cuota(usuario_id, credito_id).await?;
+                }
+            }
+        }
+
+        Ok(gasto)
     }
 
     pub async fn eliminar_gasto(&self, usuario_id: i64, id: i32) -> Result<Gasto> {

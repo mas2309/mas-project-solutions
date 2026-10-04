@@ -12,6 +12,7 @@ pub enum CategoriaGasto {
     Entretenimiento,
     Mantenimiento,
     Impuestos,
+    Credito,
     Otro,
 }
 
@@ -27,6 +28,7 @@ impl From<String> for CategoriaGasto {
             "entretenimiento" => CategoriaGasto::Entretenimiento,
             "mantenimiento" => CategoriaGasto::Mantenimiento,
             "impuestos" => CategoriaGasto::Impuestos,
+            "credito" => CategoriaGasto::Credito,
             _ => CategoriaGasto::Otro,
         }
     }
@@ -44,6 +46,7 @@ impl ToString for CategoriaGasto {
             CategoriaGasto::Entretenimiento => "Entretenimiento".to_string(),
             CategoriaGasto::Mantenimiento => "Mantenimiento".to_string(),
             CategoriaGasto::Impuestos => "Impuestos".to_string(),
+            CategoriaGasto::Credito => "Credito".to_string(),
             CategoriaGasto::Otro => "Otro".to_string(),
         }
     }
@@ -87,4 +90,5 @@ pub struct Gasto {
     pub soporte: Option<String>,
     pub fecha: String,
     pub fecha_creacion: String,
+    pub credito_id: Option<i32>,
 }

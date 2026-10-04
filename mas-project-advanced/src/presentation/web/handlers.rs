@@ -654,6 +654,8 @@ pub async fn list_gastos(
 ) -> Result<GastosListTemplate, StatusCode> {
     // Auto-generar los gastos fijos cuyo día de facturación ya pasó
     let _ = state.gasto_recurrente_service.auto_generar_fijos(user.id).await;
+    // Auto-generar las cuotas de créditos cuyo día de pago ya llegó
+    let _ = state.credito_service.auto_generar_cuotas(user.id).await;
 
     let page_size = 20;
     let (gastos, total) = state.gasto_service.listar_gastos(user.id, pagination.page, page_size).await
@@ -1085,6 +1087,7 @@ pub struct CreateCreditoForm {
     pub valor_cuota: String,
     pub fecha_inicio: String,
     pub fecha_fin_estimada: Option<String>,
+    pub dia_pago: Option<String>,
 }
 
 pub async fn create_credito(
@@ -1102,6 +1105,7 @@ pub async fn create_credito(
         valor_cuota: form.valor_cuota.parse().map_err(|_| StatusCode::BAD_REQUEST)?,
         fecha_inicio: form.fecha_inicio,
         fecha_fin_estimada: form.fecha_fin_estimada.filter(|s| !s.is_empty()),
+        dia_pago: form.dia_pago.filter(|s| !s.is_empty()).map(|s| s.parse()).transpose().map_err(|_| StatusCode::BAD_REQUEST)?,
     };
 
     state.credito_service.crear_credito(user.id, dto).await
@@ -1149,11 +1153,22 @@ pub async fn update_credito(
         valor_cuota: form.valor_cuota.parse().map_err(|_| StatusCode::BAD_REQUEST)?,
         fecha_inicio: form.fecha_inicio,
         fecha_fin_estimada: form.fecha_fin_estimada.filter(|s| !s.is_empty()),
+        dia_pago: form.dia_pago.filter(|s| !s.is_empty()).map(|s| s.parse()).transpose().map_err(|_| StatusCode::BAD_REQUEST)?,
     };
 
     state.credito_service.editar_credito(user.id, id, dto).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    Ok(Redirect::to("/creditos"))
+}
+
+pub async fn finalizar_credito(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(id): Path<i32>,
+) -> Result<Redirect, StatusCode> {
+    state.credito_service.finalizar_credito(user.id, id).await
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
     Ok(Redirect::to("/creditos"))
 }
 
