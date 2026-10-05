@@ -107,7 +107,7 @@ pub async fn dashboard(State(state): State<AppState>, user: AuthUser) -> Result<
     let num_creditos = creditos_activos.len();
 
     Ok(DashboardTemplate {
-        title: "Dashboard - MAS Finance".to_string(),
+        title: "Dashboard - Mas Finance".to_string(),
         balance,
         total_ingresos,
         total_gastos,

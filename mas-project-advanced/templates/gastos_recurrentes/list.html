@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Gastos Recurrentes - MAS Finance{% endblock %}
+{% block title %}Gastos Recurrentes - Mas Finance{% endblock %}
 {% block page_title %}Gastos Recurrentes{% endblock %}
 {% block nav_gastos %}active text-white bg-sidebar-hover{% endblock %}
 
@@ -12,7 +12,7 @@
         <p class="text-gray-500 mt-1">Plantillas de gastos que se repiten cada mes</p>
     </div>
     <div class="flex space-x-2 mt-3 sm:mt-0">
-        <a href="/gastos-recurrentes/new" class="inline-flex items-center px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm">
+        <a href="/gastos-recurrentes/new" class="inline-flex items-center px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Nueva Plantilla
         </a>
@@ -52,7 +52,7 @@
                 <p class="text-sm text-gray-500">Variables pendientes</p>
             </div>
             {% if pendientes_generar > 0 %}
-            <button type="submit" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm">
+            <button type="submit" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm">
                 ⚡ Generar
             </button>
             {% else %}

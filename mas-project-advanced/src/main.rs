@@ -11,7 +11,7 @@ async fn main() {
 
     let config = AppConfig::load();
     
-    println!("🚀 MAS Finance - Sistema de Gestión Financiera Personal");
+    println!("🚀 Mas Finance - Tus finanzas personales, siempre a más");
     println!("🌍 Ambiente: {:?}", config.environment);
     println!("🌐 Servidor: {}", config.server_address());
 
