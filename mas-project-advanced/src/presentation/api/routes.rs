@@ -4,6 +4,7 @@ use axum::{
 };
 use super::handlers;
 use crate::presentation::web::server::AppState;
+use crate::presentation::web::file_handlers;
 
 pub fn api_routes() -> Router<AppState> {
     Router::new()
@@ -41,6 +42,10 @@ pub fn api_routes() -> Router<AppState> {
         .route("/documentos", get(handlers::api_list_documentos))
         .route("/documentos", post(handlers::api_create_documento))
         .route("/documentos/:id", delete(handlers::api_delete_documento))
+        // Descarga de archivos a través del backend (mismos handlers que la web)
+        .route("/documentos/:id/descargar", get(file_handlers::descargar_documento))
+        .route("/gastos/:id/soporte", get(file_handlers::descargar_soporte_gasto))
+        .route("/pagos/:id/evidencia/:tipo", get(file_handlers::descargar_evidencia_pago))
         // Proyectos
         .route("/proyectos", get(handlers::api_list_proyectos))
         .route("/proyectos", post(handlers::api_create_proyecto))

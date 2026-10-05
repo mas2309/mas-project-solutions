@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use crate::application::repositories::pago_repository::IPagoRepository;
 use crate::application::repositories::proyecto_repository::IProyectoRepository;
-use crate::application::services::storage_service::IStorageService;
+use crate::application::services::storage_service::{IStorageService, ArchivoDescarga, nombre_desde_url};
 use crate::domain::entities::PagoExistente;
 use crate::application::dto::{CreatePagoDto, PagosSummaryDto};
 use anyhow::{Result, anyhow};
@@ -83,6 +83,19 @@ impl PagoService {
         
         self.repository.actualizar_evidencia(usuario_id, pago_id, &file_url, tipo).await?
             .ok_or_else(|| anyhow!("Pago no encontrado"))
+    }
+
+    /// Lee una evidencia del pago (solo si pertenece al usuario). `tipo`: "cliente" o "constructora".
+    pub async fn descargar_evidencia(&self, usuario_id: i64, pago_id: i32, tipo: &str) -> Result<ArchivoDescarga> {
+        let pago = self.obtener_pago(usuario_id, pago_id).await?;
+        let url = match tipo {
+            "cliente" => pago.evidencia,
+            "constructora" => pago.evidencia_constructora,
+            _ => return Err(anyhow!("Tipo de evidencia no válido")),
+        }
+        .ok_or_else(|| anyhow!("El pago no tiene esa evidencia"))?;
+        let (contenido, content_type) = self.storage_service.download_file(&url).await?;
+        Ok(ArchivoDescarga { contenido, content_type, nombre: nombre_desde_url(&url) })
     }
 
     pub async fn marcar_pagado(&self, usuario_id: i64, id: i32) -> Result<PagoExistente> {
