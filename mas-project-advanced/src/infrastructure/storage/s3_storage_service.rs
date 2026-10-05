@@ -67,6 +67,27 @@ impl ContaboStorageService {
     }
 }
 
+/// Content-Type según la extensión. Sin él, el storage guarda `application/octet-stream`
+/// y el navegador descarga el archivo en vez de mostrarlo (PDF, imágenes).
+fn content_type_for(file_name: &str) -> &'static str {
+    let ext = file_name.rsplit('.').next().unwrap_or("").to_lowercase();
+    match ext.as_str() {
+        "pdf" => "application/pdf",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "heic" => "image/heic",
+        "txt" => "text/plain; charset=utf-8",
+        "csv" => "text/csv; charset=utf-8",
+        "doc" => "application/msword",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "xls" => "application/vnd.ms-excel",
+        "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        _ => "application/octet-stream",
+    }
+}
+
 #[async_trait]
 impl IStorageService for ContaboStorageService {
     async fn upload_file(&self, file_data: Vec<u8>, file_name: &str, bucket: &str) -> Result<String> {
@@ -78,6 +99,7 @@ impl IStorageService for ContaboStorageService {
             .put_object()
             .bucket(bucket)
             .key(file_name)
+            .content_type(content_type_for(file_name))
             .body(body)
             .send()
             .await
@@ -106,5 +128,31 @@ impl IStorageService for ContaboStorageService {
         }
 
         Ok(())
+    }
+
+    async fn download_file(&self, file_url: &str) -> Result<(Vec<u8>, String)> {
+        let (bucket, key) = self.parse_url(file_url)
+            .ok_or_else(|| anyhow::anyhow!("URL de archivo no válida: {}", file_url))?;
+
+        let output = self.client
+            .get_object()
+            .bucket(&bucket)
+            .key(&key)
+            .send()
+            .await
+            .context(format!("Error al leer '{}' del bucket '{}'", key, bucket))?;
+
+        // Archivos subidos antes de guardar el Content-Type quedaron como octet-stream
+        let content_type = match output.content_type() {
+            Some(ct) if !ct.is_empty() && ct != "application/octet-stream" && ct != "binary/octet-stream" => ct.to_string(),
+            _ => content_type_for(&key).to_string(),
+        };
+
+        let contenido = output.body.collect().await
+            .context("Error al leer el contenido del archivo")?
+            .into_bytes()
+            .to_vec();
+
+        Ok((contenido, content_type))
     }
 }

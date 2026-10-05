@@ -1862,6 +1862,7 @@ dependencies = [
  "bigdecimal 0.4.9",
  "chrono",
  "cookie",
+ "dotenvy",
  "jsonwebtoken",
  "rust_decimal",
  "serde",

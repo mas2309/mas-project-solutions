@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="Mas Finance">
+  <rect width="320" height="320" rx="64" fill="#10243B"/>
+  <line x1="89" y1="191" x2="231" y2="191" stroke="#FFFFFF" stroke-width="34" stroke-linecap="round"/>
+  <path d="M113 122 L160 76 L207 122 M160 76 L160 248" fill="none" stroke="#2FCB8F" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

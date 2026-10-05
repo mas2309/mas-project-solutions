@@ -1,5 +1,6 @@
 use axum::{
     extract::State,
+    extract::OriginalUri,
     http::{Request, StatusCode, Uri},
     middleware::Next,
     response::{Response, Redirect, IntoResponse},
@@ -60,7 +61,7 @@ pub async fn auth_guard(
     mut request: Request<Body>,
     next: Next,
 ) -> Response {
-    let is_api = request.uri().path().starts_with("/api/");
+    let is_api = is_api_request(&request);
 
     // 1. Intentar obtener el token
     let token = extract_token(&cookies, &request);
@@ -97,7 +98,7 @@ pub async fn admin_guard(
     request: Request<Body>,
     next: Next,
 ) -> Response {
-    let is_api = request.uri().path().starts_with("/api/");
+    let is_api = is_api_request(&request);
 
     // Obtener Claims del request (insertados por auth_guard)
     let claims = request.extensions().get::<Claims>().cloned();
@@ -172,4 +173,15 @@ fn forbidden_response(is_api: bool) -> Response {
         // Web: redirigir al dashboard con mensaje (o mostrar página de error)
         Redirect::to("/dashboard?error=acceso_denegado").into_response()
     }
+}
+
+/// Dentro de `.nest("/api/v1", ...)` axum recorta el prefijo de `request.uri()`,
+/// así que se usa `OriginalUri` para saber si la petición es de la API.
+fn is_api_request(request: &Request<Body>) -> bool {
+    request
+        .extensions()
+        .get::<OriginalUri>()
+        .map(|uri| uri.path())
+        .unwrap_or_else(|| request.uri().path())
+        .starts_with("/api/")
 }

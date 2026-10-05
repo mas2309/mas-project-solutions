@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::application::repositories::documento_repository::IDocumentoRepository;
-use crate::application::services::storage_service::IStorageService;
+use crate::application::services::storage_service::{IStorageService, ArchivoDescarga};
 use crate::domain::entities::Documento;
 use crate::application::dto::CreateDocumentoDto;
 use anyhow::{Result, anyhow};
@@ -23,6 +23,14 @@ impl DocumentoService {
         let storage_name = format!("documentos/{}-{}.{}", clean_name, timestamp, extension);
         let file_url = self.storage_service.upload_file(file_data, &storage_name, &self.bucket).await?;
         self.repository.create(usuario_id, dto, &file_url, file_name).await
+    }
+
+    /// Lee el archivo del documento (solo si pertenece al usuario) con su nombre original.
+    pub async fn descargar_documento(&self, usuario_id: i64, id: i32) -> Result<ArchivoDescarga> {
+        let doc = self.repository.find_by_id(usuario_id, id).await?
+            .ok_or_else(|| anyhow!("Documento no encontrado"))?;
+        let (contenido, content_type) = self.storage_service.download_file(&doc.archivo_url).await?;
+        Ok(ArchivoDescarga { contenido, content_type, nombre: doc.nombre_archivo })
     }
 
     pub async fn listar_documentos(&self, usuario_id: i64, page: u32, page_size: u32) -> Result<(Vec<Documento>, i64)> {

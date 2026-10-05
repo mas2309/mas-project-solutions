@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use crate::application::repositories::gasto_repository::IGastoRepository;
 use crate::application::repositories::credito_repository::ICreditoRepository;
-use crate::application::services::storage_service::IStorageService;
+use crate::application::services::storage_service::{IStorageService, ArchivoDescarga, nombre_desde_url};
 use crate::domain::entities::{Gasto, EstadoGasto, EstadoCredito};
 use crate::application::dto::CreateGastoDto;
 use anyhow::{Result, anyhow};
@@ -74,6 +74,14 @@ impl GastoService {
         
         self.repository.actualizar_soporte(usuario_id, id, &file_url).await?
             .ok_or_else(|| anyhow!("Gasto no encontrado"))
+    }
+
+    /// Lee el soporte del gasto (solo si pertenece al usuario).
+    pub async fn descargar_soporte(&self, usuario_id: i64, id: i32) -> Result<ArchivoDescarga> {
+        let gasto = self.obtener_gasto(usuario_id, id).await?;
+        let url = gasto.soporte.ok_or_else(|| anyhow!("El gasto no tiene soporte"))?;
+        let (contenido, content_type) = self.storage_service.download_file(&url).await?;
+        Ok(ArchivoDescarga { contenido, content_type, nombre: nombre_desde_url(&url) })
     }
 
     pub async fn obtener_gasto(&self, usuario_id: i64, id: i32) -> Result<Gasto> {
